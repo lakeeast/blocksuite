@@ -205,7 +205,8 @@ const embedConfig: AttachmentEmbedConfig[] = [
           type="application/pdf"
           credentialless
         ></iframe>
-        <div class="affine-attachment-embed-event-mask"></div>
+        <!--<div class="affine-attachment-embed-event-mask"></div>-->
+        <!--Chen: This is the bug that causes mouse bugs in PDF viewer-->
       `;
     },
   },
