@@ -861,10 +861,13 @@ export class Store {
       | (() => void)
       | Partial<(PropsOfModel<T> & BlockSysProps) | BlockProps>
   ) {
+    /*
+    // Chen: allow switching to embed mode etc
     if (this.readonly) {
       console.error('cannot modify data in readonly mode');
       return;
     }
+    */
 
     const isCallback = typeof callBackOrProps === 'function';
 
