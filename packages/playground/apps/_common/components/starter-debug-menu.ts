@@ -964,6 +964,9 @@ export class StarterDebugMenu extends ShadowlessElement {
         newDoc.load(); // Ensure the document is loaded
       }
 
+      if (credential.allowWrite == false) {
+        newDoc.readonly = true;
+      }
       // Update the editor's document
       this.editor.doc = newDoc;
       newDoc.history.store.resetHistory();
