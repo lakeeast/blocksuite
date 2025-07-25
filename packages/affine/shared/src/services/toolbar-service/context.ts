@@ -67,7 +67,7 @@ abstract class ToolbarContextBase {
   }
 
   get activated() {
-    if (this.readonly) return false;
+    //if (this.readonly) return false;
     if (this.flags.accept()) return true;
     if (this.host.event.active) return true;
     // Selects `embed-synced-doc-block`
