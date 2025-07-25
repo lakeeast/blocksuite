@@ -89,7 +89,7 @@ import { StorageManager } from '../storage/storage-manager';
 import { Zip } from '../../../../affine/widgets/linked-doc/src/transformers/utils.js';
 import { AttachmentBlockComponent } from '@blocksuite/affine-block-attachment';
 import type { TestWorkspace } from '../../../../framework/store/src/test/test-workspace.js';
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject } from 'rxjs';
 declare var decoder: any;
 
 const basePath =
@@ -847,7 +847,6 @@ export class StarterDebugMenu extends ShadowlessElement {
       const storage = StorageManager.CreateStorage(credential.storageType);
       storage.initialize(credential);
 
-
       const fileFullPath = 'affine.zip';
       const fileUrl = storage.getFileUrl(fileFullPath);
       if (!fileUrl) {
@@ -954,7 +953,6 @@ export class StarterDebugMenu extends ShadowlessElement {
         }
       }
 
-
       const newDoc = docs[0]; // Adjust this if you need a specific document
       if (!newDoc) {
         throw new Error('Failed to load document from snapshot');
@@ -966,7 +964,12 @@ export class StarterDebugMenu extends ShadowlessElement {
 
       if (credential.allowWrite == false) {
         newDoc.readonly = true;
+        this.readonly = true; // Update reactive property
+      } else {
+        newDoc.readonly = false;
+        this.readonly = false; // Update reactive property
       }
+
       // Update the editor's document
       this.editor.doc = newDoc;
       newDoc.history.store.resetHistory();
@@ -974,7 +977,6 @@ export class StarterDebugMenu extends ShadowlessElement {
       // Update the editor's mode (if necessary)
       const modeService = this.editor.std.provider.get(DocModeProvider);
       this.editor.mode = modeService.getPrimaryMode(newDoc.id);
-
 
       // Ensure attachment blocks are initialized
       const attachmentBlocks = newDoc.getBlocksByFlavour('affine:attachment');
@@ -1295,200 +1297,202 @@ export class StarterDebugMenu extends ShadowlessElement {
       </style>
       <div class="debug-menu default">
         <div class="default-toolbar">
-          <sl-button-group label="History">
-            <sl-tooltip content="Undo" placement="bottom" hoist>
-              <sl-button
-                size="small"
-                .disabled="${!this._canUndo}"
-                @click="${() => this.doc.undo()}"
-              >
-                <sl-icon name="arrow-counterclockwise" label="Undo"></sl-icon>
-              </sl-button>
-            </sl-tooltip>
-            <sl-tooltip content="Redo" placement="bottom" hoist>
-              <sl-button
-                size="small"
-                .disabled="${!this._canRedo}"
-                @click="${() => this.doc.redo()}"
-              >
-                <sl-icon name="arrow-clockwise" label="Redo"></sl-icon>
-              </sl-button>
-            </sl-tooltip>
-          </sl-button-group>
+                  ${!this.readonly ? html`
+                      <sl-button-group label="History">
+                          <sl-tooltip content="Undo" placement="bottom" hoist>
+                              <sl-button
+                                  size="small"
+                                  .disabled="${!this._canUndo}"
+                                  @click="${() => this.doc.undo()}"
+                              >
+                                  <sl-icon name="arrow-counterclockwise" label="Undo"></sl-icon>
+                              </sl-button>
+                          </sl-tooltip>
+                          <sl-tooltip content="Redo" placement="bottom" hoist>
+                              <sl-button
+                                  size="small"
+                                  .disabled="${!this._canRedo}"
+                                  @click="${() => this.doc.redo()}"
+                              >
+                                  <sl-icon name="arrow-clockwise" label="Redo"></sl-icon>
+                              </sl-button>
+                          </sl-tooltip>
+                      </sl-button-group>
+                  ` : null}
 
-          <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
-            <sl-button size="small" slot="trigger" caret>
-              Test Operations
-            </sl-button>
-            <sl-menu>
-              <sl-menu-item @click="${this._print}">Print</sl-menu-item>
-              <sl-menu-item>
-                Export
-                <sl-menu slot="submenu">
-                  <sl-menu-item @click="${this._exportMarkDown}">
-                    Export Markdown
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportHtml}">
-                    Export HTML
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportPlainText}">
-                    Export Plain Text
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportPdf}">
-                    Export PDF
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportPng}">
-                    Export PNG
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportSnapshot}">
-                    Export Snapshot
-                  </sl-menu-item>
-                </sl-menu>
-              </sl-menu-item>
-              <sl-menu-item>
-                Import
-                <sl-menu slot="submenu">
-                  <sl-menu-item @click="${this._importSnapshot}">
-                    Import Snapshot
-                  </sl-menu-item>
-                  <sl-menu-item>
-                    Import Notion HTML
-                    <sl-menu slot="submenu">
-                      <sl-menu-item @click="${this._importNotionHTML}">
-                        Single Notion HTML Page
-                      </sl-menu-item>
-                      <sl-menu-item @click="${this._importNotionHTMLZip}">
-                        Notion HTML Zip
-                      </sl-menu-item>
-                    </sl-menu>
-                  </sl-menu-item>
-                  <sl-menu-item>
-                    Import Markdown
-                    <sl-menu slot="submenu">
-                      <sl-menu-item @click="${this._importMarkdown}">
-                        Markdown Files
-                      </sl-menu-item>
-                      <sl-menu-item @click="${this._importMarkdownZip}">
-                        Markdown Zip
-                      </sl-menu-item>
-                    </sl-menu>
-                  </sl-menu-item>
-                  <sl-menu-item>
-                    Import HTML
-                    <sl-menu slot="submenu">
-                      <sl-menu-item @click="${this._importHTML}">
-                        HTML Files
-                      </sl-menu-item>
-                      <sl-menu-item @click="${this._importHTMLZip}">
-                        HTML Zip
-                      </sl-menu-item>
-                    </sl-menu>
-                  </sl-menu-item>
-                </sl-menu>
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleStyleDebugMenu}">
-                Toggle CSS Debug Menu
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleReadonly}">
-                Toggle Readonly
-              </sl-menu-item>
-              <sl-menu-item @click="${this._shareSelection}">
-                Share Selection
-              </sl-menu-item>
-              <sl-menu-item @click="${this._switchOffsetMode}">
-                Switch Offset Mode
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleOutlinePanel}">
-                Toggle Outline Panel
-              </sl-menu-item>
-              <sl-menu-item @click="${this._enableOutlineViewer}">
-                Enable Outline Viewer
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleFramePanel}">
-                Toggle Frame Panel
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleCommentPanel}">
-                Toggle Comment Panel
-              </sl-menu-item>
-              <sl-menu-item @click="${this._addNote}">Add Note</sl-menu-item>
-              <sl-menu-item @click="${this._toggleMultipleEditors}">
-                Toggle Multiple Editors
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleAdapterPanel}">
-                Toggle Adapter Panel
-              </sl-menu-item>
-            </sl-menu>
-          </sl-dropdown>
+                  <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
+                      <sl-button size="small" slot="trigger" caret>
+                          Test Operations
+                      </sl-button>
+                      <sl-menu>
+                          <sl-menu-item @click="${this._print}">Print</sl-menu-item>
+                          <sl-menu-item>
+                              Export
+                              <sl-menu slot="submenu">
+                                  <sl-menu-item @click="${this._exportMarkDown}">
+                                      Export Markdown
+                                  </sl-menu-item>
+                                  <sl-menu-item @click="${this._exportHtml}">
+                                      Export HTML
+                                  </sl-menu-item>
+                                  <sl-menu-item @click="${this._exportPlainText}">
+                                      Export Plain Text
+                                  </sl-menu-item>
+                                  <sl-menu-item @click="${this._exportPdf}">
+                                      Export PDF
+                                  </sl-menu-item>
+                                  <sl-menu-item @click="${this._exportPng}">
+                                      Export PNG
+                                  </sl-menu-item>
+                                  <sl-menu-item @click="${this._exportSnapshot}">
+                                      Export Snapshot
+                                  </sl-menu-item>
+                              </sl-menu>
+                          </sl-menu-item>
+                          <sl-menu-item>
+                              Import
+                              <sl-menu slot="submenu">
+                                  <sl-menu-item @click="${this._importSnapshot}">
+                                      Import Snapshot
+                                  </sl-menu-item>
+                                  <sl-menu-item>
+                                      Import Notion HTML
+                                      <sl-menu slot="submenu">
+                                          <sl-menu-item @click="${this._importNotionHTML}">
+                                              Single Notion HTML Page
+                                          </sl-menu-item>
+                                          <sl-menu-item @click="${this._importNotionHTMLZip}">
+                                              Notion HTML Zip
+                                          </sl-menu-item>
+                                      </sl-menu>
+                                  </sl-menu-item>
+                                  <sl-menu-item>
+                                      Import Markdown
+                                      <sl-menu slot="submenu">
+                                          <sl-menu-item @click="${this._importMarkdown}">
+                                              Markdown Files
+                                          </sl-menu-item>
+                                          <sl-menu-item @click="${this._importMarkdownZip}">
+                                              Markdown Zip
+                                          </sl-menu-item>
+                                      </sl-menu>
+                                  </sl-menu-item>
+                                  <sl-menu-item>
+                                      Import HTML
+                                      <sl-menu slot="submenu">
+                                          <sl-menu-item @click="${this._importHTML}">
+                                              HTML Files
+                                          </sl-menu-item>
+                                          <sl-menu-item @click="${this._importHTMLZip}">
+                                              HTML Zip
+                                          </sl-menu-item>
+                                      </sl-menu>
+                                  </sl-menu-item>
+                              </sl-menu>
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._toggleStyleDebugMenu}">
+                              Toggle CSS Debug Menu
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._toggleReadonly}">
+                              Toggle Readonly
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._shareSelection}">
+                              Share Selection
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._switchOffsetMode}">
+                              Switch Offset Mode
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._toggleOutlinePanel}">
+                              Toggle Outline Panel
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._enableOutlineViewer}">
+                              Enable Outline Viewer
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._toggleFramePanel}">
+                              Toggle Frame Panel
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._toggleCommentPanel}">
+                              Toggle Comment Panel
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._addNote}">Add Note</sl-menu-item>
+                          <sl-menu-item @click="${this._toggleMultipleEditors}">
+                              Toggle Multiple Editors
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._toggleAdapterPanel}">
+                              Toggle Adapter Panel
+                          </sl-menu-item>
+                      </sl-menu>
+                  </sl-dropdown>
 
-          <sl-tooltip content="Switch Editor" placement="bottom" hoist>
-            <sl-button size="small" @click="${this._switchEditorMode}">
-              <sl-icon name="repeat"></sl-icon>
-            </sl-button>
-          </sl-tooltip>
+                  <sl-tooltip content="Switch Editor" placement="bottom" hoist>
+                      <sl-button size="small" @click="${this._switchEditorMode}">
+                          <sl-icon name="repeat"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
 
-          ${this._isSaving ? html`
-            <sl-progress-ring class="save-progress" value="${this._saveProgress}"></sl-progress-ring>
-          ` : html`
-            <sl-tooltip content="Save Data" placement="bottom" hoist>
-              <sl-button size="small" @click="${this._saveData}">
-                <sl-icon name="floppy"></sl-icon>
-              </sl-button>
-            </sl-tooltip>
-          `}
+                  ${!this.readonly && !this._isSaving ? html`
+                      <sl-tooltip content="Save Data" placement="bottom" hoist>
+                          <sl-button size="small" @click="${this._saveData}">
+                              <sl-icon name="floppy"></sl-icon>
+                          </sl-button>
+                      </sl-tooltip>
+                  ` : this._isSaving ? html`
+                      <sl-progress-ring class="save-progress" value="${this._saveProgress}"></sl-progress-ring>
+                  ` : null}
 
-          ${this._hasUndoableChanges() ? html`
-            <sl-tooltip content="Cancel Changes" placement="bottom" hoist>
-              <sl-button size="small" @click="${this.cancelChanges}">
-                <sl-icon name="x-circle"></sl-icon> Cancel
-              </sl-button>
-            </sl-tooltip>
-          ` : null}
+                  ${!this.readonly && this._hasUndoableChanges() ? html`
+                      <sl-tooltip content="Cancel Changes" placement="bottom" hoist>
+                          <sl-button size="small" @click="${this.cancelChanges}">
+                              <sl-icon name="x-circle"></sl-icon> Cancel
+                          </sl-button>
+                      </sl-tooltip>
+                  ` : null}
 
-          <sl-tooltip content="Load Snapshot" placement="bottom" hoist>
-            <sl-button size="small" @click="${() => this._loadSnapshotWithToken({ storageType: 'aws' })}">
-              <sl-icon name="download"></sl-icon>
-            </sl-button>
-          </sl-tooltip>
+                  <sl-tooltip content="Load Snapshot" placement="bottom" hoist>
+                      <sl-button size="small" @click="${() => this._loadSnapshotWithToken({ storageType: 'aws' })}">
+                          <sl-icon name="download"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
 
-          <sl-tooltip content="Clear Site Data" placement="bottom" hoist>
-            <sl-button size="small" @click="${this._clearSiteData}">
-              <sl-icon name="trash"></sl-icon>
-            </sl-button>
-          </sl-tooltip>
+                  <sl-tooltip content="Clear Site Data" placement="bottom" hoist>
+                      <sl-button size="small" @click="${this._clearSiteData}">
+                          <sl-icon name="trash"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
 
-          <sl-tooltip
-            content="Toggle ${this._dark ? 'Light' : 'Dark'} Mode"
-            placement="bottom"
-            hoist
-          >
-            <sl-button size="small" @click="${this._toggleDarkMode}">
-              <sl-icon
-                name="${this._dark ? 'moon' : 'brightness-high'}"
-              ></sl-icon>
-            </sl-button>
-          </sl-tooltip>
+                  <sl-tooltip
+                      content="Toggle ${this._dark ? 'Light' : 'Dark'} Mode"
+                      placement="bottom"
+                      hoist
+                  >
+                      <sl-button size="small" @click="${this._toggleDarkMode}">
+                          <sl-icon
+                              name="${this._dark ? 'moon' : 'brightness-high'}"
+                          ></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
 
-          <sl-tooltip
-            content="Enter presentation mode"
-            placement="bottom"
-            hoist
-          >
-            <sl-button size="small" @click="${this._present}">
-              <sl-icon name="easel"></sl-icon>
-            </sl-button>
-          </sl-tooltip>
+                  <sl-tooltip
+                      content="Enter presentation mode"
+                      placement="bottom"
+                      hoist
+                  >
+                      <sl-button size="small" @click="${this._present}">
+                          <sl-icon name="easel"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
 
-          <sl-button
-            data-testid="docs-button"
-            size="small"
-            @click="${this._toggleDocsPanel}"
-            data-docs-panel-toggle
-          >
-            Docs
-          </sl-button>
-        </div>
-      </div>
-    `;
+                  <sl-button
+                      data-testid="docs-button"
+                      size="small"
+                      @click="${this._toggleDocsPanel}"
+                      data-docs-panel-toggle
+                  >
+                      Docs
+                  </sl-button>
+              </div>
+          </div>
+      `;
   }
 
   override update(changedProperties: Map<string, unknown>) {
