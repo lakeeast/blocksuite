@@ -383,7 +383,6 @@ class DicomViewerPopup extends LitElement {
 
 let currentPopupInstance: DicomViewerPopup | null = null;
 
-// Remainder of toolbar.ts (unchanged)
 const trackBaseProps = {
   category: 'attachment',
   type: 'card view',
@@ -650,6 +649,7 @@ const replaceAction = {
     const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
     block?.replace().catch(console.error);
   },
+  when: ctx => false, // Hide "Replace Attachment" always
 } as const satisfies ToolbarAction;
 
 const downloadAction = {
@@ -680,6 +680,7 @@ const captionAction = {
       control: 'add caption',
     });
   },
+  when: ctx => !ctx.store.readonly, // Hide in readonly mode
 } as const satisfies ToolbarAction;
 
 const builtinToolbarConfig = {
@@ -692,6 +693,8 @@ const builtinToolbarConfig = {
         });
         const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
         if (!block) return null;
+
+        if (ctx.store.readonly) return null; // Hide in readonly mode
 
         const abortController = new AbortController();
         abortController.signal.onabort = () => ctx.show();
@@ -734,6 +737,7 @@ const builtinToolbarConfig = {
     {
       placement: ActionPlacement.More,
       id: 'a.clipboard',
+      when: ctx => !ctx.store.readonly, // Hide in readonly mode
       actions: [
         {
           id: 'copy',
@@ -765,6 +769,7 @@ const builtinToolbarConfig = {
     {
       placement: ActionPlacement.More,
       id: 'b.refresh',
+      when: ctx => !ctx.store.readonly, // Hide in readonly mode
       label: 'Reload',
       icon: ResetIcon(),
       run(ctx) {
@@ -781,6 +786,7 @@ const builtinToolbarConfig = {
     {
       placement: ActionPlacement.More,
       id: 'c.delete',
+      when: ctx => !ctx.store.readonly, // Hide in readonly mode
       label: 'Delete',
       icon: DeleteIcon(),
       variant: 'destructive',
