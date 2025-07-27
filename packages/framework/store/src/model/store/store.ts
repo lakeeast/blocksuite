@@ -746,12 +746,15 @@ export class Store {
     parent?: BlockModel | string | null,
     parentIndex?: number
   ): string {
+    // In readonly mode, we will still allow adding blocks to support switching from card view to embed view
+    /*
     if (this.readonly) {
       throw new BlockSuiteError(
         ErrorCode.ModelCRUDError,
         'cannot modify data in readonly mode'
       );
     }
+    */
 
     const id = blockProps.id ?? this._doc.workspace.idGenerator();
 
@@ -947,10 +950,13 @@ export class Store {
       deleteChildren: true,
     }
   ) {
+    /*
+    // Chen: allow switching to embed mode etc
     if (this.readonly) {
       console.error('cannot modify data in readonly mode');
       return;
     }
+    */
 
     const opts = (
       options && options.bringChildrenTo
