@@ -209,8 +209,6 @@ export class DefaultTool extends BaseTool {
   }
 
   override click(e: PointerEventState) {
-    if (this.doc.readonly) return;
-
     if (!this.interactivity?.handleElementSelection(e)) {
       this.selection.clear();
       resetNativeSelection(null);
