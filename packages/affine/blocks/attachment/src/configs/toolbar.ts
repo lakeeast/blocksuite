@@ -136,6 +136,199 @@ async function getAttachmentBlob(block: AttachmentBlockComponent): Promise<Blob 
   }
 }
 
+// Define ThreeDViewerPopup
+@customElement('threed-viewer-popup')
+class ThreeDViewerPopup extends LitElement {
+  static override styles = css`
+    .popup-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .popup-container {
+      background: white;
+      width: 90vw;
+      height: 100vh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .close-button {
+      position: absolute;
+      top: 50px;
+      right: 10px;
+      background: #ff4d4f;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 16px;
+      z-index: 1001;
+    }
+    .close-button:hover {
+      background: #d9363e;
+    }
+  `;
+
+  model: AttachmentBlockModel | null = null;
+  block: AttachmentBlockComponent | null = null;
+  std: any = null;
+  onClose: () => void = () => {};
+  private _messageListener: (event: MessageEvent) => void;
+
+  constructor() {
+    super();
+    this._messageListener = this._handleIframeMessage.bind(this);
+  }
+
+   override connectedCallback() {
+    super.connectedCallback();
+    // Attach listener early in lifecycle
+    window.addEventListener('message', this._messageListener);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    // Clean up
+    window.removeEventListener('message', this._messageListener);
+  }
+
+   private _handleIframeMessage(event: MessageEvent) {
+    // Debug: Log all messages
+    console.log('Toolbar received message:', event.data, 'from origin:', event.origin);
+
+    if (event.data?.type === 'registered') {
+      console.log(`Toolbar: Custom element ${event.data.component} registered!`);
+        this._setupViewerInIframe();
+    }
+  }
+
+
+  override firstUpdated() {
+    // No direct script loading here; handled in iframe
+  }
+
+  override render() {
+    return html`
+      <div class="popup-overlay" @click=${this._handleOutsideClick}>
+        <div class="popup-container">
+          <button class="close-button" @click=${this._handleClose}>Close</button>
+          <iframe
+            id="threed-viewer-iframe"
+            style="width: 100%; height: 100%; border: none;"
+            @load=${this._initializeIframe}
+          ></iframe>
+        </div>
+      </div>
+    `;
+  }
+
+  private async _initializeIframe() {
+    const iframe = this.shadowRoot?.querySelector('#threed-viewer-iframe') as HTMLIFrameElement;
+    if (!iframe || !iframe.contentDocument || !iframe.contentWindow) {
+      console.error('Iframe not ready');
+      toast(this.block?.host, 'Failed to load 3D viewer');
+      return;
+    }
+    const doc = iframe.contentDocument!;
+
+    // Load the script dynamically and await its completion
+    const script = doc.createElement('script');
+    script.type = 'module';
+    script.src = 'qt-gl/js/index.js';
+    doc.head.appendChild(script);  // Or doc.body if no head
+  }
+
+  private async _setupViewerInIframe() {
+    const iframe = this.shadowRoot?.querySelector('#threed-viewer-iframe') as HTMLIFrameElement;
+    const doc = iframe.contentDocument!;
+
+    // Create the <gl-editor> element inside the iframe
+    const threedElement = doc.createElement('gl-editor');
+
+    // Style the element to fill the iframe
+    threedElement.style.width = '100%';
+    threedElement.style.height = '100%';
+
+    // Append to iframe body
+    doc.body.style.margin = '0';
+    doc.body.style.overflow = 'hidden';
+    doc.body.appendChild(threedElement);
+
+    // Now perform the studyManager setup
+    const workspace = this.std?.store.workspace as any;
+    if (!workspace) {
+      console.error('Workspace not found');
+      toast(this.block?.host, 'Failed to load 3D viewer');
+      return;
+    }
+    const fileName = this.model?.props.name || '';
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    let url = this.model?.props.blobUrl || '';
+    if (!url) {
+      const blob = await getAttachmentBlob(this.block!);
+      url = URL.createObjectURL(blob);
+    }
+    const mgr = await threedElement._instance.exposed.createVtkManager(extension); // Static function
+    await mgr.loadFromUrl(url); // Alternatively
+    try {
+      // TODO: load 3D model from file
+      //await (threedElement as any).setStudyManager(studyManager);
+      await threedElement._instance.exposed.setVtkManager(mgr); // Load the mgr
+      console.log(`Set setVtkManager for model ${this.model?.props.name}`);
+
+      // Clean up event listeners
+      const cleanup = () => {
+        (threedElement as any).clearViews?.();
+        threedElement.remove();
+      };
+
+      this.addEventListener('close', () => {
+        cleanup();
+        this.onClose?.();
+        this.remove();
+      });
+
+      const abortController = (this as any).abortController as AbortController | undefined;
+      if (abortController) {
+        abortController.signal.addEventListener('abort', () => {
+          console.log('Cleaning up DICOM viewer on abort');
+          cleanup();
+          this.dispatchEvent(new CustomEvent('close'));
+        });
+      }
+    } catch (error) {
+      console.error('Failed to initialize DICOM viewer in iframe:', error);
+      toast(this.block?.host, 'Failed to load DICOM viewer');
+    }
+  }
+
+  private _handleOutsideClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.popup-container')) {
+      this._handleClose();
+    }
+  }
+
+  private _handleClose() {
+    console.log('Closing popup');
+    this.onClose();
+  }
+}
+
+let currentThreeDPopupInstance: ThreeDViewerPopup | null = null;
+
+//////////////////////////////////
+// Define ThreeDViewerPopup
 // Define DicomViewerPopup
 @customElement('dicom-viewer-popup')
 class DicomViewerPopup extends LitElement {
@@ -163,7 +356,7 @@ class DicomViewerPopup extends LitElement {
     }
     .close-button {
       position: absolute;
-      top: 10px;
+      top: 50px;
       right: 10px;
       background: #ff4d4f;
       color: white;
@@ -204,7 +397,6 @@ class DicomViewerPopup extends LitElement {
   }
 
   private _initializeIframe() {
-
     const iframe = this.shadowRoot?.querySelector('#dicom-viewer-iframe') as HTMLIFrameElement;
     if (!iframe || !iframe.contentDocument || !iframe.contentWindow) {
       console.error('Iframe not ready');
@@ -214,12 +406,6 @@ class DicomViewerPopup extends LitElement {
 
     const doc = iframe.contentDocument;
     const win = iframe.contentWindow;
-
-    /*
-    (win as any).global = window;
-    (win as any).process = window.process;
-    (win as any).Buffer = window.Buffer;
-    */
 
     // Add Material Design CSS links to iframe head
     const link1 = doc.createElement('link');
@@ -382,6 +568,8 @@ class DicomViewerPopup extends LitElement {
 }
 
 let currentPopupInstance: DicomViewerPopup | null = null;
+// End define ThreeDViewerPopup
+/////////////////////////////////
 
 const trackBaseProps = {
   category: 'attachment',
@@ -526,6 +714,66 @@ export const attachmentViewDropdownMenu = {
         });
       },
     },
+    {
+      id: 'threeD',
+      label: '3D view',
+      disabled: ctx => {
+        const model = ctx.getCurrentModelByType(AttachmentBlockModel);
+        console.log('3D view disabled check:', {
+          modelExists: !!model,
+          sourceId: !!model?.props.sourceId$.value,
+          fileName: model?.props.name,
+        });
+        if (!model) return true;
+        const fileName = model.props.name || '';
+        const is3DFile = fileName.endsWith('.stl') || fileName.endsWith('.obj') || fileName.endsWith('.glb');
+        return !is3DFile || !model.props.sourceId$.value;
+      },
+      run(ctx) {
+        console.log('3D view triggered:', {
+          name: ctx.getCurrentModelByType(AttachmentBlockModel)?.props.name,
+        });
+        const model = ctx.getCurrentModelByType(AttachmentBlockModel);
+        const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
+        if (!model || !block) {
+          console.error('Missing model or block');
+          toast(block?.host, 'Failed to load 3D view');
+          return;
+        }
+
+        if (currentThreeDPopupInstance) {
+          console.log('Removing existing popup instance');
+          currentThreeDPopupInstance.onClose();
+          currentThreeDPopupInstance = null;
+        }
+
+        console.log('Creating 3D viewer popup for:', model.props.name);
+        const abortController = new AbortController();
+        const popup = document.createElement('threed-viewer-popup') as ThreeDViewerPopup;
+        popup.model = model;
+        popup.block = block;
+        popup.std = ctx.std;
+        console.log('Popup set:', { model: popup.model?.props.name, block: !!popup.block });
+        popup.onClose = () => {
+          currentThreeDPopupInstance?.remove();
+          currentThreeDPopupInstance = null;
+          abortController.abort();
+        };
+        currentThreeDPopupInstance = popup;
+
+        const portal = createLitPortal({
+          template: popup,
+          abortController,
+        });
+        console.log('currentThreeDPopupInstance created:', !!currentThreeDPopupInstance);
+
+        ctx.track('SelectedView', {
+          ...trackBaseProps,
+          control: 'select view',
+          type: 'dicom view',
+        });
+      },
+    }
   ],
   content(ctx) {
     console.log('attachmentViewDropdownMenu.content called', {
@@ -566,9 +814,17 @@ export const attachmentViewDropdownMenu = {
       const embed = model.props.embed$.value ?? false;
       const fileName = model.props.name || '';
       const isDicom = fileName.endsWith('.dicomdir');
+      const is3DFile = fileName.endsWith('.stl') || fileName.endsWith('.obj') || fileName.endsWith('.glb');
 
-      console.log('viewType$ computed:', { embed, isDicom });
-      return isDicom ? 'DICOM view' : embed ? 'Embed view' : 'Card view';
+      console.log('viewType$ computed:', { embed, isDicom, is3DFile });
+
+      if (isDicom) {
+        return 'DICOM view';
+      } else if (is3DFile) {
+        return '3D view';
+      } else {
+        return embed ? 'Embed view' : 'Card view';
+      }
     });
 
     const onToggle = (e: CustomEvent<boolean>) => {
@@ -616,6 +872,35 @@ export const attachmentViewDropdownMenu = {
             control: 'select view',
             type: 'dicom view',
           });
+        }
+        else if (viewType$.value === '3D view') {
+          console.log('Triggering 3D view for:', model.props.name);
+
+          if (currentThreeDPopupInstance) {
+            console.log('Removing existing popup instance');
+            currentThreeDPopupInstance.onClose();
+            currentThreeDPopupInstance = null;
+          }
+
+          console.log('Creating 3D viewer popup for:', model.props.name);
+          const abortController = new AbortController();
+          const popup = document.createElement('threed-viewer-popup') as ThreeDViewerPopup;
+          popup.model = model;
+          popup.block = block;
+          popup.std = ctx.std;
+          console.log('Popup set:', { model: popup.model?.props.name, block: !!popup.block });
+          popup.onClose = () => {
+            currentThreeDPopupInstance?.remove();
+            currentThreeDPopupInstance = null;
+            abortController.abort();
+          };
+          currentThreeDPopupInstance = popup;
+
+          const portal = createLitPortal({
+            template: popup,
+            abortController,
+          });
+          console.log('currentThreeDPopupInstance created:', !!currentThreeDPopupInstance);
         }
       }
       ctx.track('OpenedViewSelector', {
