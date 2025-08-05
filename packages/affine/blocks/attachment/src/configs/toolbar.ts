@@ -244,7 +244,7 @@ class ThreeDViewerPopup extends LitElement {
     // Load the script dynamically and await its completion
     const script = doc.createElement('script');
     script.type = 'module';
-    script.src = 'qt-gl/js/index.js';
+    script.src = '/block/qt-gl/js/index.js';
     doc.head.appendChild(script);  // Or doc.body if no head
   }
 
