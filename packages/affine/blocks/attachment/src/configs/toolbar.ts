@@ -163,8 +163,8 @@ class ThreeDViewerPopup extends LitElement {
     }
     .close-button {
       position: absolute;
-      top: 50px;
-      right: 10px;
+      top: 10px;
+      right: 130px;
       background: #ff4d4f;
       color: white;
       border: none;
@@ -356,8 +356,8 @@ class DicomViewerPopup extends LitElement {
     }
     .close-button {
       position: absolute;
-      top: 50px;
-      right: 10px;
+      top: 10px;
+      right: 130px;
       background: #ff4d4f;
       color: white;
       border: none;
