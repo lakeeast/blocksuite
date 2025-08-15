@@ -3,7 +3,7 @@ import { type SlashMenuConfig } from '@blocksuite/affine-widget-slash-menu';
 import { ExportToPdfIcon, FileIcon } from '@blocksuite/icons/lit';
 
 import { addSiblingAttachmentBlocks } from '../utils';
-import { AttachmentTooltip, DicomTooltip, PDFTooltip, ThreeDTooltip } from './tooltips';
+import { ARTooltip, AttachmentTooltip, DicomTooltip, PDFTooltip, ThreeDTooltip } from './tooltips';
 import JSZip from 'jszip';
 import { uuidv4 } from '@blocksuite/store';
 import { svg } from 'lit';
@@ -68,6 +68,37 @@ export function ThreeDIcon() {
         text-anchor="middle"
       >
         DCM
+      </text>
+    </svg>
+  `;
+}
+
+export function ARIcon() {
+  return svg`
+    <svg
+      width="40"
+      height="40"
+      viewBox="0 0 40 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M7.75 4C7.75 2.20508 9.20508 0.75 11 0.75H27C27.1212 0.75 27.2375 0.798159 27.3232 0.883885L38.1161 11.6768C38.2018 11.7625 38.25 11.8788 38.25 12V36C38.25 37.7949 36.7949 39.25 35 39.25H11C9.20507 39.25 7.75 37.7949 7.75 36V4Z"
+        stroke="#D0D5DD"
+        stroke-width="1.5"
+        fill="none"
+      />
+      <rect x="1" y="18" width="26" height="16" rx="2" fill="#7F56D9" />
+      <text
+        x="14"
+        y="30"
+        font-size="10"
+        font-family="Arial, sans-serif"
+        font-weight="bold"
+        fill="white"
+        text-anchor="middle"
+      >
+        AR
       </text>
     </svg>
   `;
@@ -149,6 +180,26 @@ export const attachmentSlashMenuConfig: SlashMenuConfig = {
         caption: '3D',
       },
       group: '4_Content & Media@12',
+      when: ({ model }) =>
+        model.store.schema.flavourSchemaMap.has('affine:attachment'),
+      action: async ({ std, model }) => {
+          const file = await openSingleFileWith();
+          if (!file) return;
+          await addSiblingAttachmentBlocks(std, [file], model);
+        if (model.text?.length === 0) {
+          std.store.deleteBlock(model);
+        }
+      },
+    },
+    {
+      name: 'AR',
+      description: 'Insert AR.',
+      icon: ARIcon(),
+      tooltip: {
+        figure: ARTooltip,
+        caption: 'AR',
+      },
+      group: '4_Content & Media@13',
       when: ({ model }) =>
         model.store.schema.flavourSchemaMap.has('affine:attachment'),
       action: async ({ std, model }) => {
