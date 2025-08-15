@@ -439,7 +439,6 @@ class ARViewerPopup extends LitElement {
     // Append to iframe body
     doc.body.style.margin = '0';
     doc.body.style.overflow = 'hidden';
-    doc.body.appendChild(arElement);
 
     // Now perform the studyManager setup
     const workspace = this.std?.store.workspace as any;
@@ -456,7 +455,13 @@ class ARViewerPopup extends LitElement {
       url = URL.createObjectURL(blob);
     }
 
+    arElement.setAttribute('shadow-intensity', '1');
+    arElement.setAttribute('ar', ''); // Boolean attribute for AR support
+    arElement.setAttribute('camera-controls', ''); // Boolean attribute for camera controls
+    arElement.setAttribute('touch-action', 'pan-y');
     arElement.setAttribute('src', url);
+    doc.body.appendChild(arElement);
+    
     try {
       // Clean up event listeners
       const cleanup = () => {
