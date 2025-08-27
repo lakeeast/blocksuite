@@ -1437,7 +1437,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                           </sl-button>
                       </sl-tooltip>
                   ` : this._isSaving ? html`
-                      <sl-progress-ring class="save-progress" value="${this._saveProgress}"></sl-progress-ring>
+                      <sl-progress-ring class="save-progress" value="${this._saveProgress}"> ${Math.round(this._saveProgress)}</sl-progress-ring>
                   ` : null}
 
                   ${!this.readonly && this._hasUndoableChanges() ? html`
