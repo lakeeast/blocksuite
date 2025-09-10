@@ -107,12 +107,12 @@ export function ARIcon() {
 export const attachmentSlashMenuConfig: SlashMenuConfig = {
   items: [
     {
-      name: 'Attachment',
+      name: '附件',
       description: 'Attach a file to document.',
       icon: FileIcon(),
       tooltip: {
         figure: AttachmentTooltip,
-        caption: 'Attachment',
+        caption: '附件',
       },
       searchAlias: ['file'],
       group: '4_Content & Media@3',

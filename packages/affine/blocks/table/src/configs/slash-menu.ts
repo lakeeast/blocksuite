@@ -11,7 +11,7 @@ export const tableSlashMenuConfig: SlashMenuConfig = {
   disableWhen: ({ model }) => model.flavour === 'affine:table',
   items: [
     {
-      name: 'Table',
+      name: '表格',
       description: 'Create a simple table.',
       icon: TableIcon(),
       tooltip: {

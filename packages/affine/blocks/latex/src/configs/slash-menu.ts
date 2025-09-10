@@ -34,7 +34,7 @@ export const latexSlashMenuConfig: SlashMenuConfig = {
       },
     },
     {
-      name: 'Equation',
+      name: '公式块',
       description: 'Create a equation block.',
       icon: TeXIcon(),
       tooltip: {
