@@ -27,7 +27,7 @@ const noteSlashMenuConfig: SlashMenuConfig = {
       .filter(i => i.type && ['h1', 'h2', 'h3', 'text'].includes(i.type))
       .map(config => createConversionItem(config, `0_Basic@${basicIndex++}`)),
     {
-      name: 'Other Headings',
+      name: '其他标题',
       icon: HeadingsIcon(),
       group: `0_Basic@${basicIndex++}`,
       subMenu: textConversionConfigs
