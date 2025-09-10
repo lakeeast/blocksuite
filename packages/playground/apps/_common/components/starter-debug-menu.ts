@@ -1299,7 +1299,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         <div class="default-toolbar">
                   ${!this.readonly ? html`
                       <sl-button-group label="History">
-                          <sl-tooltip content="Undo" placement="bottom" hoist>
+                          <sl-tooltip content="撤销" placement="bottom" hoist>
                               <sl-button
                                   size="small"
                                   .disabled="${!this._canUndo}"
@@ -1308,7 +1308,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                                   <sl-icon name="arrow-counterclockwise" label="Undo"></sl-icon>
                               </sl-button>
                           </sl-tooltip>
-                          <sl-tooltip content="Redo" placement="bottom" hoist>
+                          <sl-tooltip content="重做" placement="bottom" hoist>
                               <sl-button
                                   size="small"
                                   .disabled="${!this._canRedo}"
@@ -1322,44 +1322,47 @@ export class StarterDebugMenu extends ShadowlessElement {
 
                   <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
                       <sl-button size="small" slot="trigger" caret>
-                          Test Operations
+                          操作
                       </sl-button>
                       <sl-menu>
-                          <sl-menu-item @click="${this._print}">Print</sl-menu-item>
+                          <sl-menu-item @click="${this._print}">打印/导出PDF</sl-menu-item>
+                          <!--
                           <sl-menu-item>
-                              Export
+                              输出
                               <sl-menu slot="submenu">
                                   <sl-menu-item @click="${this._exportMarkDown}">
-                                      Export Markdown
+                                      输出Markdown
                                   </sl-menu-item>
                                   <sl-menu-item @click="${this._exportHtml}">
-                                      Export HTML
+                                      输出HTML
                                   </sl-menu-item>
                                   <sl-menu-item @click="${this._exportPlainText}">
-                                      Export Plain Text
+                                      输出纯文本
                                   </sl-menu-item>
                                   <sl-menu-item @click="${this._exportPdf}">
-                                      Export PDF
+                                      输出PDF
                                   </sl-menu-item>
                                   <sl-menu-item @click="${this._exportPng}">
-                                      Export PNG
+                                      输出PNG
                                   </sl-menu-item>
                                   <sl-menu-item @click="${this._exportSnapshot}">
-                                      Export Snapshot
+                                      输出快照
                                   </sl-menu-item>
                               </sl-menu>
                           </sl-menu-item>
+                          -->
+                          <!--
                           <sl-menu-item>
                               Import
                               <sl-menu slot="submenu">
                                   <sl-menu-item @click="${this._importSnapshot}">
-                                      Import Snapshot
+                                      输入快照
                                   </sl-menu-item>
                                   <sl-menu-item>
-                                      Import Notion HTML
+                                      输入 Notion HTML
                                       <sl-menu slot="submenu">
                                           <sl-menu-item @click="${this._importNotionHTML}">
-                                              Single Notion HTML Page
+                                              单个Notion HTML页面
                                           </sl-menu-item>
                                           <sl-menu-item @click="${this._importNotionHTMLZip}">
                                               Notion HTML Zip
@@ -1367,10 +1370,10 @@ export class StarterDebugMenu extends ShadowlessElement {
                                       </sl-menu>
                                   </sl-menu-item>
                                   <sl-menu-item>
-                                      Import Markdown
+                                      输入Markdown
                                       <sl-menu slot="submenu">
                                           <sl-menu-item @click="${this._importMarkdown}">
-                                              Markdown Files
+                                              Markdown文件
                                           </sl-menu-item>
                                           <sl-menu-item @click="${this._importMarkdownZip}">
                                               Markdown Zip
@@ -1378,10 +1381,10 @@ export class StarterDebugMenu extends ShadowlessElement {
                                       </sl-menu>
                                   </sl-menu-item>
                                   <sl-menu-item>
-                                      Import HTML
+                                      输入HTML
                                       <sl-menu slot="submenu">
                                           <sl-menu-item @click="${this._importHTML}">
-                                              HTML Files
+                                              HTML文件
                                           </sl-menu-item>
                                           <sl-menu-item @click="${this._importHTMLZip}">
                                               HTML Zip
@@ -1390,6 +1393,8 @@ export class StarterDebugMenu extends ShadowlessElement {
                                   </sl-menu-item>
                               </sl-menu>
                           </sl-menu-item>
+                          -->
+                          <!--
                           <sl-menu-item @click="${this._toggleStyleDebugMenu}">
                               Toggle CSS Debug Menu
                           </sl-menu-item>
@@ -1402,12 +1407,14 @@ export class StarterDebugMenu extends ShadowlessElement {
                           <sl-menu-item @click="${this._switchOffsetMode}">
                               Switch Offset Mode
                           </sl-menu-item>
+                          -->
                           <sl-menu-item @click="${this._toggleOutlinePanel}">
-                              Toggle Outline Panel
+                              大纲面板
                           </sl-menu-item>
                           <sl-menu-item @click="${this._enableOutlineViewer}">
-                              Enable Outline Viewer
+                              大纲提示
                           </sl-menu-item>
+                          <!--
                           <sl-menu-item @click="${this._toggleFramePanel}">
                               Toggle Frame Panel
                           </sl-menu-item>
@@ -1421,18 +1428,19 @@ export class StarterDebugMenu extends ShadowlessElement {
                           <sl-menu-item @click="${this._toggleAdapterPanel}">
                               Toggle Adapter Panel
                           </sl-menu-item>
+                        -->
                       </sl-menu>
                   </sl-dropdown>
 
-                  <sl-tooltip content="Switch Editor" placement="bottom" hoist>
+                  <sl-tooltip content="模式切换" placement="bottom" hoist>
                       <sl-button size="small" @click="${this._switchEditorMode}">
                           <sl-icon name="repeat"></sl-icon>
                       </sl-button>
                   </sl-tooltip>
 
                   ${!this.readonly && !this._isSaving ? html`
-                      <sl-tooltip content="Save Data" placement="bottom" hoist>
-                          <sl-button size="small" @click="${this._saveData}">
+                      <sl-tooltip content="保存" placement="bottom" hoist>
+                          <sl-button size="small" click="${this._saveData}">
                               <sl-icon name="floppy"></sl-icon>
                           </sl-button>
                       </sl-tooltip>
@@ -1441,27 +1449,28 @@ export class StarterDebugMenu extends ShadowlessElement {
                   ` : null}
 
                   ${!this.readonly && this._hasUndoableChanges() ? html`
-                      <sl-tooltip content="Cancel Changes" placement="bottom" hoist>
+                      <sl-tooltip content="取消" placement="bottom" hoist>
                           <sl-button size="small" @click="${this.cancelChanges}">
                               <sl-icon name="x-circle"></sl-icon> Cancel
                           </sl-button>
                       </sl-tooltip>
                   ` : null}
-
+                  <!--
                   <sl-tooltip content="Load Snapshot" placement="bottom" hoist>
                       <sl-button size="small" @click="${() => this._loadSnapshotWithToken({ storageType: 'aws' })}">
                           <sl-icon name="download"></sl-icon>
                       </sl-button>
                   </sl-tooltip>
 
+
                   <sl-tooltip content="Clear Site Data" placement="bottom" hoist>
                       <sl-button size="small" @click="${this._clearSiteData}">
                           <sl-icon name="trash"></sl-icon>
                       </sl-button>
                   </sl-tooltip>
-
+                  -->
                   <sl-tooltip
-                      content="Toggle ${this._dark ? 'Light' : 'Dark'} Mode"
+                      content="Toggle ${this._dark ? '浅色' : '深色'}主题"
                       placement="bottom"
                       hoist
                   >
@@ -1473,7 +1482,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                   </sl-tooltip>
 
                   <sl-tooltip
-                      content="Enter presentation mode"
+                      content="演讲模式"
                       placement="bottom"
                       hoist
                   >
@@ -1481,7 +1490,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                           <sl-icon name="easel"></sl-icon>
                       </sl-button>
                   </sl-tooltip>
-
+                  <!--
                   <sl-button
                       data-testid="docs-button"
                       size="small"
@@ -1490,6 +1499,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                   >
                       Docs
                   </sl-button>
+                  -->
               </div>
           </div>
       `;
