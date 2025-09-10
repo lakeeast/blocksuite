@@ -1320,7 +1320,75 @@ export class StarterDebugMenu extends ShadowlessElement {
                       </sl-button-group>
                   ` : null}
 
-                  <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
+                  <sl-tooltip content="模式切换" placement="bottom" hoist>
+                      <sl-button size="small" @click="${this._switchEditorMode}">
+                          <sl-icon name="repeat"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
+
+                  ${!this.readonly && !this._isSaving ? html`
+                      <sl-tooltip content="保存" placement="bottom" hoist>
+                          <sl-button size="small" click="${this._saveData}">
+                              <sl-icon name="floppy"></sl-icon>
+                          </sl-button>
+                      </sl-tooltip>
+                  ` : this._isSaving ? html`
+                      <sl-progress-ring class="save-progress" value="${this._saveProgress}"> ${Math.round(this._saveProgress)}</sl-progress-ring>
+                  ` : null}
+
+                  ${!this.readonly && this._hasUndoableChanges() ? html`
+                      <sl-tooltip content="取消" placement="bottom" hoist>
+                          <sl-button size="small" @click="${this.cancelChanges}">
+                              <sl-icon name="x-circle"></sl-icon> Cancel
+                          </sl-button>
+                      </sl-tooltip>
+                  ` : null}
+                  <!--
+                  <sl-tooltip content="Load Snapshot" placement="bottom" hoist>
+                      <sl-button size="small" @click="${() => this._loadSnapshotWithToken({ storageType: 'aws' })}">
+                          <sl-icon name="download"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
+
+
+                  <sl-tooltip content="Clear Site Data" placement="bottom" hoist>
+                      <sl-button size="small" @click="${this._clearSiteData}">
+                          <sl-icon name="trash"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
+                  -->
+                  <sl-tooltip
+                      content="Toggle ${this._dark ? '浅色' : '深色'}主题"
+                      placement="bottom"
+                      hoist
+                  >
+                      <sl-button size="small" @click="${this._toggleDarkMode}">
+                          <sl-icon
+                              name="${this._dark ? 'moon' : 'brightness-high'}"
+                          ></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
+
+                  <sl-tooltip
+                      content="演讲模式"
+                      placement="bottom"
+                      hoist
+                  >
+                      <sl-button size="small" @click="${this._present}">
+                          <sl-icon name="easel"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
+                  <!--
+                  <sl-button
+                      data-testid="docs-button"
+                      size="small"
+                      @click="${this._toggleDocsPanel}"
+                      data-docs-panel-toggle
+                  >
+                      Docs
+                  </sl-button>
+                  -->
+<sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
                       <sl-button size="small" slot="trigger" caret>
                           操作
                       </sl-button>
@@ -1431,75 +1499,6 @@ export class StarterDebugMenu extends ShadowlessElement {
                         -->
                       </sl-menu>
                   </sl-dropdown>
-
-                  <sl-tooltip content="模式切换" placement="bottom" hoist>
-                      <sl-button size="small" @click="${this._switchEditorMode}">
-                          <sl-icon name="repeat"></sl-icon>
-                      </sl-button>
-                  </sl-tooltip>
-
-                  ${!this.readonly && !this._isSaving ? html`
-                      <sl-tooltip content="保存" placement="bottom" hoist>
-                          <sl-button size="small" click="${this._saveData}">
-                              <sl-icon name="floppy"></sl-icon>
-                          </sl-button>
-                      </sl-tooltip>
-                  ` : this._isSaving ? html`
-                      <sl-progress-ring class="save-progress" value="${this._saveProgress}"> ${Math.round(this._saveProgress)}</sl-progress-ring>
-                  ` : null}
-
-                  ${!this.readonly && this._hasUndoableChanges() ? html`
-                      <sl-tooltip content="取消" placement="bottom" hoist>
-                          <sl-button size="small" @click="${this.cancelChanges}">
-                              <sl-icon name="x-circle"></sl-icon> Cancel
-                          </sl-button>
-                      </sl-tooltip>
-                  ` : null}
-                  <!--
-                  <sl-tooltip content="Load Snapshot" placement="bottom" hoist>
-                      <sl-button size="small" @click="${() => this._loadSnapshotWithToken({ storageType: 'aws' })}">
-                          <sl-icon name="download"></sl-icon>
-                      </sl-button>
-                  </sl-tooltip>
-
-
-                  <sl-tooltip content="Clear Site Data" placement="bottom" hoist>
-                      <sl-button size="small" @click="${this._clearSiteData}">
-                          <sl-icon name="trash"></sl-icon>
-                      </sl-button>
-                  </sl-tooltip>
-                  -->
-                  <sl-tooltip
-                      content="Toggle ${this._dark ? '浅色' : '深色'}主题"
-                      placement="bottom"
-                      hoist
-                  >
-                      <sl-button size="small" @click="${this._toggleDarkMode}">
-                          <sl-icon
-                              name="${this._dark ? 'moon' : 'brightness-high'}"
-                          ></sl-icon>
-                      </sl-button>
-                  </sl-tooltip>
-
-                  <sl-tooltip
-                      content="演讲模式"
-                      placement="bottom"
-                      hoist
-                  >
-                      <sl-button size="small" @click="${this._present}">
-                          <sl-icon name="easel"></sl-icon>
-                      </sl-button>
-                  </sl-tooltip>
-                  <!--
-                  <sl-button
-                      data-testid="docs-button"
-                      size="small"
-                      @click="${this._toggleDocsPanel}"
-                      data-docs-panel-toggle
-                  >
-                      Docs
-                  </sl-button>
-                  -->
               </div>
           </div>
       `;
