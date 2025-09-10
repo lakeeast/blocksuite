@@ -31,7 +31,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
 
     return [
       {
-        name: 'Today',
+        name: '今天',
         icon: TodayIcon(),
         tooltip: slashMenuToolTips['Today'],
         description: formatDate(now),
@@ -41,7 +41,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         },
       },
       {
-        name: 'Tomorrow',
+        name: '明天',
         icon: TomorrowIcon(),
         tooltip: slashMenuToolTips['Tomorrow'],
         description: formatDate(tomorrow),
@@ -53,7 +53,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         },
       },
       {
-        name: 'Yesterday',
+        name: '昨天',
         icon: YesterdayIcon(),
         tooltip: slashMenuToolTips['Yesterday'],
         description: formatDate(yesterday),
@@ -65,7 +65,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         },
       },
       {
-        name: 'Now',
+        name: '现在',
         icon: NowIcon(),
         tooltip: slashMenuToolTips['Now'],
         description: formatTime(now),
