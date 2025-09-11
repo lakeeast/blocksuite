@@ -1319,22 +1319,6 @@ export class StarterDebugMenu extends ShadowlessElement {
                           </sl-tooltip>
                       </sl-button-group>
                   ` : null}
-
-                  <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
-                      <sl-button size="small" slot="trigger" caret>
-                          操作
-                      </sl-button>
-                      <sl-menu>
-                          <sl-menu-item @click="${this._print}">打印/导出PDF</sl-menu-item>
-                          <sl-menu-item @click="${this._toggleOutlinePanel}">
-                              大纲面板
-                          </sl-menu-item>
-                          <sl-menu-item @click="${this._enableOutlineViewer}">
-                              大纲提示
-                          </sl-menu-item>
-                      </sl-menu>
-                  </sl-dropdown>
-
                   <sl-tooltip content="模式切换" placement="bottom" hoist>
                       <sl-button size="small" @click="${this._switchEditorMode}">
                           <sl-icon name="repeat"></sl-icon>
@@ -1379,6 +1363,21 @@ export class StarterDebugMenu extends ShadowlessElement {
                           <sl-icon name="easel"></sl-icon>
                       </sl-button>
                   </sl-tooltip>
+
+                  <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
+                      <sl-button size="small" slot="trigger" caret>
+                          操作
+                      </sl-button>
+                      <sl-menu>
+                          <sl-menu-item @click="${this._print}">打印/导出PDF</sl-menu-item>
+                          <sl-menu-item @click="${this._toggleOutlinePanel}">
+                              大纲面板
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._enableOutlineViewer}">
+                              大纲提示
+                          </sl-menu-item>
+                      </sl-menu>
+                  </sl-dropdown>
               </div>
           </div>
       `;
