@@ -1326,106 +1326,12 @@ export class StarterDebugMenu extends ShadowlessElement {
                       </sl-button>
                       <sl-menu>
                           <sl-menu-item @click="${this._print}">打印/导出PDF</sl-menu-item>
-                          <!--
-                          <sl-menu-item>
-                              Export
-                              <sl-menu slot="submenu">
-                                  <sl-menu-item @click="${this._exportMarkDown}">
-                                      Export Markdown
-                                  </sl-menu-item>
-                                  <sl-menu-item @click="${this._exportHtml}">
-                                      Export HTML
-                                  </sl-menu-item>
-                                  <sl-menu-item @click="${this._exportPlainText}">
-                                      Export Plain Text
-                                  </sl-menu-item>
-                                  <sl-menu-item @click="${this._exportPdf}">
-                                      Export PDF
-                                  </sl-menu-item>
-                                  <sl-menu-item @click="${this._exportPng}">
-                                      Export PNG
-                                  </sl-menu-item>
-                                  <sl-menu-item @click="${this._exportSnapshot}">
-                                      Export Snapshot
-                                  </sl-menu-item>
-                              </sl-menu>
-                          </sl-menu-item>
-                          <sl-menu-item>
-                              Import
-                              <sl-menu slot="submenu">
-                                  <sl-menu-item @click="${this._importSnapshot}">
-                                      Import Snapshot
-                                  </sl-menu-item>
-                                  <sl-menu-item>
-                                      Import Notion HTML
-                                      <sl-menu slot="submenu">
-                                          <sl-menu-item @click="${this._importNotionHTML}">
-                                              Single Notion HTML Page
-                                          </sl-menu-item>
-                                          <sl-menu-item @click="${this._importNotionHTMLZip}">
-                                              Notion HTML Zip
-                                          </sl-menu-item>
-                                      </sl-menu>
-                                  </sl-menu-item>
-                                  <sl-menu-item>
-                                      Import Markdown
-                                      <sl-menu slot="submenu">
-                                          <sl-menu-item @click="${this._importMarkdown}">
-                                              Markdown Files
-                                          </sl-menu-item>
-                                          <sl-menu-item @click="${this._importMarkdownZip}">
-                                              Markdown Zip
-                                          </sl-menu-item>
-                                      </sl-menu>
-                                  </sl-menu-item>
-                                  <sl-menu-item>
-                                      Import HTML
-                                      <sl-menu slot="submenu">
-                                          <sl-menu-item @click="${this._importHTML}">
-                                              HTML Files
-                                          </sl-menu-item>
-                                          <sl-menu-item @click="${this._importHTMLZip}">
-                                              HTML Zip
-                                          </sl-menu-item>
-                                      </sl-menu>
-                                  </sl-menu-item>
-                              </sl-menu>
-                          </sl-menu-item>
-
-                          <sl-menu-item @click="${this._toggleStyleDebugMenu}">
-                              Toggle CSS Debug Menu
-                          </sl-menu-item>
-                          <sl-menu-item @click="${this._toggleReadonly}">
-                              Toggle Readonly
-                          </sl-menu-item>
-                          <sl-menu-item @click="${this._shareSelection}">
-                              Share Selection
-                          </sl-menu-item>
-                          <sl-menu-item @click="${this._switchOffsetMode}">
-                              Switch Offset Mode
-                          </sl-menu-item>
-                          -->
                           <sl-menu-item @click="${this._toggleOutlinePanel}">
                               大纲面板
                           </sl-menu-item>
                           <sl-menu-item @click="${this._enableOutlineViewer}">
                               大纲提示
                           </sl-menu-item>
-                          <!--
-                          <sl-menu-item @click="${this._toggleFramePanel}">
-                              Toggle Frame Panel
-                          </sl-menu-item>
-                          <sl-menu-item @click="${this._toggleCommentPanel}">
-                              Toggle Comment Panel
-                          </sl-menu-item>
-                          <sl-menu-item @click="${this._addNote}">Add Note</sl-menu-item>
-                          <sl-menu-item @click="${this._toggleMultipleEditors}">
-                              Toggle Multiple Editors
-                          </sl-menu-item>
-                          <sl-menu-item @click="${this._toggleAdapterPanel}">
-                              Toggle Adapter Panel
-                          </sl-menu-item>
-                          -->
                       </sl-menu>
                   </sl-dropdown>
 
@@ -1452,19 +1358,6 @@ export class StarterDebugMenu extends ShadowlessElement {
                           </sl-button>
                       </sl-tooltip>
                   ` : null}
-                  <!--
-                  <sl-tooltip content="Load Snapshot" placement="bottom" hoist>
-                      <sl-button size="small" @click="${() => this._loadSnapshotWithToken({ storageType: 'aws' })}">
-                          <sl-icon name="download"></sl-icon>
-                      </sl-button>
-                  </sl-tooltip>
-
-                  <sl-tooltip content="Clear Site Data" placement="bottom" hoist>
-                      <sl-button size="small" @click="${this._clearSiteData}">
-                          <sl-icon name="trash"></sl-icon>
-                      </sl-button>
-                  </sl-tooltip>
-                  -->
                   <sl-tooltip
                       content="Toggle ${this._dark ? '浅色' : '深色'}主题"
                       placement="bottom"
@@ -1486,16 +1379,6 @@ export class StarterDebugMenu extends ShadowlessElement {
                           <sl-icon name="easel"></sl-icon>
                       </sl-button>
                   </sl-tooltip>
-                  <!--
-                  <sl-button
-                      data-testid="docs-button"
-                      size="small"
-                      @click="${this._toggleDocsPanel}"
-                      data-docs-panel-toggle
-                  >
-                      Docs
-                  </sl-button>
-                  -->
               </div>
           </div>
       `;
