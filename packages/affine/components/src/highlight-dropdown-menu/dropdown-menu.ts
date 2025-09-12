@@ -3,8 +3,8 @@ import { PropTypes, requiredProperties } from '@blocksuite/std';
 import { LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import { html } from 'lit-html';
-import { repeat } from 'lit-html/directives/repeat.js';
+import { html, type TemplateResult } from 'lit';
+import { repeat } from 'lit/directives/repeat.js';
 
 import { EditorChevronDown } from '../toolbar';
 
@@ -19,6 +19,18 @@ const colors = [
   'purple',
   'grey',
 ] as const;
+
+const colorLabelsZh: Record<typeof colors[number], string> = {
+  default: '默认颜色',
+  red: '红色',
+  orange: '橙色',
+  yellow: '黄色',
+  green: '绿色',
+  teal: '蓝绿色',
+  blue: '蓝色',
+  purple: '紫色',
+  grey: '灰色',
+};
 
 export type HighlightType = Pick<
   AffineTextStyleAttributes,
@@ -47,22 +59,23 @@ export class HighlightDropdownMenu extends LitElement {
 
   override render() {
     const prefix = '--affine-text-highlight';
+    const _button = (html`
+      <editor-icon-button aria-label="highlight" .tooltip="${'颜色'}">
+        <affine-highlight-duotone-icon
+          style=${styleMap({
+            '--color':
+              // latestHighlightColor ?? 'var(--affine-text-primary-color)',
+              'var(--affine-text-primary-color)',
+          })}
+        ></affine-highlight-duotone-icon>
+        ${EditorChevronDown}
+      </editor-icon-button>
+    ` as unknown as any);
 
-    return html`
+    const tpl = html`
       <editor-menu-button
         .contentPadding="${'8px'}"
-        .button=${html`
-          <editor-icon-button aria-label="highlight" .tooltip="${'颜色'}">
-            <affine-highlight-duotone-icon
-              style=${styleMap({
-                '--color':
-                  // latestHighlightColor ?? 'var(--affine-text-primary-color)',
-                  'var(--affine-text-primary-color)',
-              })}
-            ></affine-highlight-duotone-icon>
-            ${EditorChevronDown}
-          </editor-icon-button>
-        `}
+        .button=${_button}
       >
         <div data-size="large" data-orientation="vertical">
           <div class="highlight-heading">字体颜色</div>
@@ -82,7 +95,7 @@ export class HighlightDropdownMenu extends LitElement {
                   })}
                 ></affine-text-duotone-icon>
                 <span class="label capitalize"
-                  >${isDefault ? `${color} color` : color}</span
+                  >${isDefault ? colorLabelsZh.default : colorLabelsZh[color]}</span
                 >
               </editor-menu-action>
             `;
@@ -105,7 +118,7 @@ export class HighlightDropdownMenu extends LitElement {
                 ></affine-text-duotone-icon>
 
                 <span class="label capitalize"
-                  >${isDefault ? `${color} background` : color}</span
+                  >${isDefault ? colorLabelsZh.default : colorLabelsZh[color]}</span
                 >
               </editor-menu-action>
             `;
@@ -113,6 +126,8 @@ export class HighlightDropdownMenu extends LitElement {
         </div>
       </editor-menu-button>
     `;
+
+    return tpl as unknown as TemplateResult;
   }
 }
 
