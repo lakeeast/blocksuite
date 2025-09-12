@@ -16,13 +16,13 @@ import {
 } from './paragraph-keymap.js';
 
 const placeholders = {
-  text: "Type '/' for commands",
-  h1: 'Heading 1',
-  h2: 'Heading 2',
-  h3: 'Heading 3',
-  h4: 'Heading 4',
-  h5: 'Heading 5',
-  h6: 'Heading 6',
+  text: "输入'/'唤醒菜单",
+  h1: '标题 1',
+  h2: '标题 2',
+  h3: '标题 3',
+  h4: '标题 4',
+  h5: '标题 5',
+  h6: '标题 6',
   quote: '',
 };
 

@@ -32,12 +32,14 @@ export const preset: InitFn = async (collection: Workspace, id: string) => {
       rootId
     );
     // Import preset markdown content inside note block
+    /*
     await MarkdownTransformer.importMarkdownToBlock({
       doc: store,
       blockId: noteId,
       markdown: presetMarkdown,
       extensions: getTestStoreManager().get('store'),
     });
+    */
   }
 
   store.resetHistory();
