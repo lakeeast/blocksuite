@@ -1334,7 +1334,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                   ` : this._isSaving ? html`
                       <sl-progress-ring class="save-progress" value="${this._saveProgress}"> ${Math.round(this._saveProgress)}</sl-progress-ring>
                   ` : null}
-
+                  <!--
                   ${!this.readonly && this._hasUndoableChanges() ? html`
                       <sl-tooltip content="取消" placement="bottom" hoist>
                           <sl-button size="small" @click="${this.cancelChanges}">
@@ -1342,6 +1342,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                           </sl-button>
                       </sl-tooltip>
                   ` : null}
+                  -->
                   <sl-tooltip
                       content="Toggle ${this._dark ? '浅色' : '深色'}主题"
                       placement="bottom"
