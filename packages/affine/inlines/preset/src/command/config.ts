@@ -96,7 +96,7 @@ export const textFormatConfigs: TextFormatConfig[] = [
   },
   {
     id: 'code',
-    name: 'Code',
+    name: '代码',
     icon: CodeIcon,
     hotkey: 'Mod-e',
     activeWhen: host => {
