@@ -52,7 +52,7 @@ export class HighlightDropdownMenu extends LitElement {
       <editor-menu-button
         .contentPadding="${'8px'}"
         .button=${html`
-          <editor-icon-button aria-label="highlight" .tooltip="${'Highlight'}">
+          <editor-icon-button aria-label="highlight" .tooltip="${'颜色'}">
             <affine-highlight-duotone-icon
               style=${styleMap({
                 '--color':
@@ -65,7 +65,7 @@ export class HighlightDropdownMenu extends LitElement {
         `}
       >
         <div data-size="large" data-orientation="vertical">
-          <div class="highlight-heading">Color</div>
+          <div class="highlight-heading">字体颜色</div>
           ${repeat(colors, color => {
             const isDefault = color === 'default';
             const value = isDefault
@@ -88,7 +88,7 @@ export class HighlightDropdownMenu extends LitElement {
             `;
           })}
 
-          <div class="highlight-heading">Background</div>
+          <div class="highlight-heading">字体背景颜色</div>
           ${repeat(colors, color => {
             const isDefault = color === 'default';
             const value = isDefault ? null : `var(${prefix}-${color})`;
