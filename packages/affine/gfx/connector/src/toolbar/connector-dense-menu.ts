@@ -35,19 +35,19 @@ export const buildConnectorDenseMenu: DenseMenuBuilder = (edgeless, gfx) => {
     options: {
       items: [
         menu.action({
-          name: 'Curve',
+          name: '线条',
           prefix: ConnectorCIcon(iconSize),
           select: createSelect(ConnectorMode.Curve),
           isSelected: isSelected && prevMode === ConnectorMode.Curve,
         }),
         menu.action({
-          name: 'Elbowed',
+          name: '直角线',
           prefix: ConnectorEIcon(iconSize),
           select: createSelect(ConnectorMode.Orthogonal),
           isSelected: isSelected && prevMode === ConnectorMode.Orthogonal,
         }),
         menu.action({
-          name: 'Straight',
+          name: '直线',
           prefix: ConnectorLIcon(iconSize),
           select: createSelect(ConnectorMode.Straight),
           isSelected: isSelected && prevMode === ConnectorMode.Straight,
