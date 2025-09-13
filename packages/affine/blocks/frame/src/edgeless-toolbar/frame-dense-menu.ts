@@ -16,7 +16,7 @@ export const buildFrameDenseMenu: DenseMenuBuilder = (edgeless, gfx) =>
     options: {
       items: [
         menu.action({
-          name: 'Custom',
+          name: '定制',
           select: () => gfx.tool.setTool(FrameTool),
         }),
         ...FrameConfig.map(config =>

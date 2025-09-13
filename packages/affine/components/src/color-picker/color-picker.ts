@@ -40,8 +40,8 @@ import {
 } from './utils.js';
 
 const TABS: NavTab<NavType>[] = [
-  { type: 'colors', name: 'Colors' },
-  { type: 'custom', name: 'Custom' },
+  { type: 'colors', name: '颜色' },
+  { type: 'custom', name: '定制' },
 ];
 
 export class EdgelessColorPicker extends SignalWatcher(
@@ -114,7 +114,7 @@ export class EdgelessColorPicker extends SignalWatcher(
     const hsva = this.hsva$.peek();
     const type = this.modeType$.peek();
     const value = { [type]: hsvaToHex8(hsva) };
-    const key = 'Custom';
+    const key = '定制';
 
     if (type !== 'normal') {
       const another = type === 'light' ? 'dark' : 'light';
