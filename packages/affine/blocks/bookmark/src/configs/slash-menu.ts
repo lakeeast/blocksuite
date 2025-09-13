@@ -14,7 +14,7 @@ import { LinkTooltip } from './tooltips';
 const bookmarkSlashMenuConfig: SlashMenuConfig = {
   items: [
     {
-      name: 'Link',
+      name: '链接',
       description: 'Add a bookmark for reference.',
       icon: LinkIcon(),
       tooltip: {
