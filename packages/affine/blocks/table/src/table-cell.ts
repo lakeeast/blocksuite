@@ -133,7 +133,7 @@ export class TableCell extends SignalWatcher(
                 prefix: ColorPickerIcon(),
                 options: {
                   items: [
-                    { name: 'Default', color: undefined },
+                    { name: '缺省', color: undefined },
                     ...colorList,
                   ].map(item =>
                     menu.action({
@@ -259,7 +259,7 @@ export class TableCell extends SignalWatcher(
                 prefix: ColorPickerIcon(),
                 options: {
                   items: [
-                    { name: 'Default', color: undefined },
+                    { name: '缺省', color: undefined },
                     ...colorList,
                   ].map(item =>
                     menu.action({

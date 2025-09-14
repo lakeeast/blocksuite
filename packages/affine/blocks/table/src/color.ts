@@ -5,35 +5,35 @@ type Color = {
 };
 export const colorList: Color[] = [
   {
-    name: 'Blue',
+    name: '蓝色',
     color: cssVarV2.table.headerBackground.blue,
   },
   {
-    name: 'Green',
+    name: '绿色',
     color: cssVarV2.table.headerBackground.green,
   },
   {
-    name: 'Grey',
+    name: '灰色',
     color: cssVarV2.table.headerBackground.grey,
   },
   {
-    name: 'Orange',
+    name: '橙色',
     color: cssVarV2.table.headerBackground.orange,
   },
   {
-    name: 'Purple',
+    name: '紫色',
     color: cssVarV2.table.headerBackground.purple,
   },
   {
-    name: 'Red',
+    name: '红色',
     color: cssVarV2.table.headerBackground.red,
   },
   {
-    name: 'Teal',
+    name: '青色',
     color: cssVarV2.table.headerBackground.teal,
   },
   {
-    name: 'Yellow',
+    name: '黄色',
     color: cssVarV2.table.headerBackground.yellow,
   },
 ];
