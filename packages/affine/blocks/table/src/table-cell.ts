@@ -129,7 +129,7 @@ export class TableCell extends SignalWatcher(
           menu.group({
             items: [
               menu.subMenu({
-                name: 'Background color',
+                name: '背景颜色',
                 prefix: ColorPickerIcon(),
                 options: {
                   items: [
@@ -175,7 +175,7 @@ export class TableCell extends SignalWatcher(
           menu.group({
             items: [
               menu.action({
-                name: 'Insert Left',
+                name: '左侧插入',
                 prefix: InsertLeftIcon(),
                 select: () => {
                   this.dataManager.insertColumn(
@@ -184,21 +184,21 @@ export class TableCell extends SignalWatcher(
                 },
               }),
               menu.action({
-                name: 'Insert Right',
+                name: '右侧插入',
                 prefix: InsertRightIcon(),
                 select: () => {
                   this.dataManager.insertColumn(columnIndex);
                 },
               }),
               menu.action({
-                name: 'Move Left',
+                name: '左移',
                 prefix: ArrowLeftBigIcon(),
                 select: () => {
                   this.dataManager.moveColumn(columnIndex, columnIndex - 2);
                 },
               }),
               menu.action({
-                name: 'Move Right',
+                name: '右移',
                 prefix: ArrowRightBigIcon(),
                 select: () => {
                   this.dataManager.moveColumn(columnIndex, columnIndex + 1);
@@ -209,7 +209,7 @@ export class TableCell extends SignalWatcher(
           menu.group({
             items: [
               menu.action({
-                name: 'Duplicate',
+                name: '复制',
                 prefix: DuplicateIcon(),
                 select: () => {
                   this.dataManager.duplicateColumn(columnIndex);
@@ -217,7 +217,7 @@ export class TableCell extends SignalWatcher(
               }),
 
               menu.action({
-                name: 'Clear column contents',
+                name: '清除内容',
                 prefix: CloseIcon(),
                 select: () => {
                   this.dataManager.clearColumn(column.columnId);
@@ -225,7 +225,7 @@ export class TableCell extends SignalWatcher(
               }),
 
               menu.action({
-                name: 'Delete',
+                name: '删除',
                 class: {
                   'delete-item': true,
                 },
@@ -255,7 +255,7 @@ export class TableCell extends SignalWatcher(
           menu.group({
             items: [
               menu.subMenu({
-                name: 'Background color',
+                name: '背景颜色',
                 prefix: ColorPickerIcon(),
                 options: {
                   items: [
@@ -285,7 +285,7 @@ export class TableCell extends SignalWatcher(
               ...(row.backgroundColor
                 ? [
                     menu.action({
-                      name: 'Clear row style',
+                      name: '清除行样式',
                       prefix: CloseIcon(),
                       select: () => {
                         this.dataManager.setRowBackgroundColor(
@@ -301,7 +301,7 @@ export class TableCell extends SignalWatcher(
           menu.group({
             items: [
               menu.action({
-                name: 'Insert Above',
+                name: '上方插入',
                 prefix: InsertAboveIcon(),
                 select: () => {
                   this.dataManager.insertRow(
@@ -310,21 +310,21 @@ export class TableCell extends SignalWatcher(
                 },
               }),
               menu.action({
-                name: 'Insert Below',
+                name: '下方插入',
                 prefix: InsertBelowIcon(),
                 select: () => {
                   this.dataManager.insertRow(rowIndex);
                 },
               }),
               menu.action({
-                name: 'Move Up',
+                name: '上移',
                 prefix: ArrowUpBigIcon(),
                 select: () => {
                   this.dataManager.moveRow(rowIndex, rowIndex - 1);
                 },
               }),
               menu.action({
-                name: 'Move Down',
+                name: '下移',
                 prefix: ArrowDownBigIcon(),
                 select: () => {
                   this.dataManager.moveRow(rowIndex, rowIndex + 1);
@@ -335,21 +335,21 @@ export class TableCell extends SignalWatcher(
           menu.group({
             items: [
               menu.action({
-                name: 'Duplicate',
+                name: '复制',
                 prefix: DuplicateIcon(),
                 select: () => {
                   this.dataManager.duplicateRow(rowIndex);
                 },
               }),
               menu.action({
-                name: 'Clear row contents',
+                name: '清除行内容',
                 prefix: CloseIcon(),
                 select: () => {
                   this.dataManager.clearRow(row.rowId);
                 },
               }),
               menu.action({
-                name: 'Delete',
+                name: '删除',
                 class: {
                   'delete-item': true,
                 },
@@ -370,7 +370,7 @@ export class TableCell extends SignalWatcher(
     select: (color?: string) => void
   ) {
     return menu.subMenu({
-      name: 'Background color',
+      name: '背景颜色',
       prefix: ColorPickerIcon(),
       options: {
         items: [{ name: 'Default', color: undefined }, ...colorList].map(item =>
@@ -408,14 +408,14 @@ export class TableCell extends SignalWatcher(
             menu.group({
               items: [
                 menu.action({
-                  name: 'Copy',
+                  name: '拷贝',
                   prefix: CopyIcon(),
                   select: () => {
                     this.selectionController.doCopyOrCut(selected, false);
                   },
                 }),
                 menu.action({
-                  name: 'Paste',
+                  name: '粘贴',
                   prefix: PasteIcon(),
                   select: () => {
                     navigator.clipboard.readText().then(text => {
@@ -428,7 +428,7 @@ export class TableCell extends SignalWatcher(
             menu.group({
               items: [
                 menu.action({
-                  name: 'Clear contents',
+                  name: '清除内容',
                   prefix: CloseIcon(),
                   select: () => {
                     this.dataManager.clearCellsBySelection(selected);
