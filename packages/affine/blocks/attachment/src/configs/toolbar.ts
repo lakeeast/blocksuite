@@ -68,6 +68,20 @@ function normalizeFilename(filename: string): string {
   return filename.trim().toLowerCase().split('/').pop() || '';
 }
 
+// Utility to determine if the browser (parent) URL indicates a read-only view.
+// We check window.parent if available and fall back to window. Wrap in try/catch
+// to avoid cross-origin access errors when inside an iframe from another origin.
+function isBrowserReadOnly(): boolean {
+  try {
+    if (typeof window === 'undefined' || typeof window.location?.search !== 'string') return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('readonly') === 'true';
+  } catch (err) {
+    // In case URL parsing/access fails for any reason, default to not read-only.
+    return false;
+  }
+}
+
 // Utility to get attachment blob
 async function getAttachmentBlob(block: AttachmentBlockComponent): Promise<Blob | null> {
   const { model, blobUrl, resourceController, host, std } = block;
@@ -1210,13 +1224,14 @@ const replaceAction = {
 
 const downloadAction = {
   id: 'd.download',
-  tooltip: 'Download',
+  tooltip: '下载',
   icon: DownloadIcon(),
   run(ctx) {
     const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
     block?.download();
   },
   when(ctx) {
+    if (isBrowserReadOnly()) return false;
     const model = ctx.getCurrentModelByType(AttachmentBlockModel);
     if (!model) return false;
     return model.props.style !== 'citation' && !model.props.footnoteIdentifier;
