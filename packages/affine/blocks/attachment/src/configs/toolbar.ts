@@ -175,22 +175,6 @@ class ThreeDViewerPopup extends LitElement {
       flex-direction: column;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
-    .close-button {
-      position: absolute;
-      top: 10px;
-      right: 130px;
-      background: #ff4d4f;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 8px 16px;
-      cursor: pointer;
-      font-size: 16px;
-      z-index: 1001;
-    }
-    .close-button:hover {
-      background: #d9363e;
-    }
   `;
 
   model: AttachmentBlockModel | null = null;
@@ -576,7 +560,6 @@ class DicomViewerPopup extends LitElement {
     return html`
       <div class="popup-overlay" @click=${this._handleOutsideClick}>
         <div class="popup-container">
-          <button class="close-button" @click=${this._handleClose}>Close</button>
           <iframe
             id="dicom-viewer-iframe"
             style="width: 100%; height: 100%; border: none;"
@@ -714,14 +697,20 @@ class DicomViewerPopup extends LitElement {
         }
       };
 
+      const closeListener = (event: any) => {
+        this._handleClose();
+      }
+
       dicomElement.addEventListener('weasisEvent', weasisListener);
       dicomElement.addEventListener('ohifEvent', ohifListener);
+      dicomElement.addEventListener('closeEvent', closeListener);
 
       // Clean up event listeners
       const cleanup = () => {
         (dicomElement as any).clearViews?.();
         dicomElement.removeEventListener('weasisEvent', weasisListener);
         dicomElement.removeEventListener('ohifEvent', ohifListener);
+        dicomElement.removeEventListener('closeEvent', closeListener);
         dicomElement.remove();
       };
 
@@ -754,6 +743,7 @@ class DicomViewerPopup extends LitElement {
 
   private _handleClose() {
     console.log('Closing popup');
+    // TODO: close based on DICOM messages
     this.onClose();
   }
 }
