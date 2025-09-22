@@ -16,10 +16,12 @@ export class TemplateViewExtension extends ViewExtensionProvider {
   }
 
   override setup(context: ViewExtensionContext) {
+    /*
     super.setup(context);
     if (this.isEdgeless(context.scope)) {
       context.register(TemplateTool);
       context.register(templateSeniorTool);
     }
+    */
   }
 }
