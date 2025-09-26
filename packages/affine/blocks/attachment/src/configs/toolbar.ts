@@ -355,7 +355,8 @@ class ARViewerPopup extends LitElement {
     .close-button {
       position: absolute;
       top: 10px;
-      right: 130px;
+      left: 50%;
+      transform: translateX(-50%);
       background: #ff4d4f;
       color: white;
       border: none;
