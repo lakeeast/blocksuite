@@ -175,6 +175,23 @@ class ThreeDViewerPopup extends LitElement {
       flex-direction: column;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
+    .close-button {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ff4d4f;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 16px;
+      z-index: 1001;
+    }
+    .close-button:hover {
+      background: #d9363e;
+    }
   `;
 
   model: AttachmentBlockModel | null = null;
@@ -219,7 +236,7 @@ class ThreeDViewerPopup extends LitElement {
     return html`
       <div class="popup-overlay" @click=${this._handleOutsideClick}>
         <div class="popup-container">
-          <button class="close-button" @click=${this._handleClose}>Close</button>
+          <button class="close-button" @click=${this._handleClose}>关闭</button>
           <iframe
             id="threed-viewer-iframe"
             style="width: 100%; height: 100%; border: none;"
@@ -396,7 +413,7 @@ class ARViewerPopup extends LitElement {
     return html`
       <div class="popup-overlay" @click=${this._handleOutsideClick}>
         <div class="popup-container">
-          <button class="close-button" @click=${this._handleClose}>Close</button>
+          <button class="close-button" @click=${this._handleClose}>关闭</button>
           <iframe
             id="ar-viewer-iframe"
             style="width: 100%; height: 100%; border: none;"
