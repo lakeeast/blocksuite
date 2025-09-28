@@ -813,10 +813,9 @@ export class StarterDebugMenu extends ShadowlessElement {
       window.parent.postMessage(
         {
           type: 'save-complete',
-          snapshotName,
-          saveCredentials,
+          documentType: 'doc',
         },
-        'https://parent-domain.com'
+        '*'
       );
 
       if (this.editor.host) {
@@ -999,10 +998,17 @@ export class StarterDebugMenu extends ShadowlessElement {
           type: 'load-complete',
           documentId: newDoc.id,
         },
-        'https://parent-domain.com'
+        '*'
       );
     } catch (error) {
       console.error('Failed to load snapshot:', error);
+      window.parent.postMessage(
+        {
+          type: 'load-failed',
+          documentType: 'doc',
+        },
+        '*'
+      );
       if (this.editor.host) {
         toast(this.editor.host, `Failed to load snapshot: ${error.message}`);
       }
