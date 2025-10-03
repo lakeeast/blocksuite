@@ -1227,6 +1227,19 @@ export class StarterDebugMenu extends ShadowlessElement {
       this._canUndo = doc.canUndo;
       this._canRedo = doc.canRedo;
     });
+
+    doc.doc.yBlocks.doc.on('update', () => {
+      window.parent.postMessage(
+        {
+          type: 'content-changed',
+          documentId: doc.id,
+        },
+        '*'
+      );
+
+      console.log('Document updated, doc=' + doc.id);
+    });
+
   }
 
   override firstUpdated() {
