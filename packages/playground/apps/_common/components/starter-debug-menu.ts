@@ -69,7 +69,7 @@ import { NotionHtmlAdapter, replaceIdMiddleware } from '@blocksuite/affine-share
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import { TestAffineEditorContainer } from '@blocksuite/integration-test';
 import type { SlDropdown } from '@shoelace-style/shoelace';
-import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
+import { registerIconLibrary } from '@shoelace-style/shoelace/dist/utilities/icon-library.js';
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import * as lz from 'lz-string';
@@ -92,9 +92,14 @@ import type { TestWorkspace } from '../../../../framework/store/src/test/test-wo
 import { BehaviorSubject } from 'rxjs';
 declare var decoder: any;
 
-const basePath =
-  'https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.11.2/dist';
-setBasePath(basePath);
+// Register a local icon library using assets from your public directory
+// This assumes you've copied icon assets to /assets/icons/ in your build process
+registerIconLibrary('default', {
+  resolver: name => {
+    return `/block/assets/icons/${name}.svg`;
+  },
+  mutator: svg => svg.setAttribute('fill', 'currentColor')
+});
 
 const OTHER_CSS_VARIABLES = StyleVariables.filter(
   variable =>
