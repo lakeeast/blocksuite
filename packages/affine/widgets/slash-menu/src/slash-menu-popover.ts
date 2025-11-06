@@ -17,6 +17,7 @@ import {
   isFuzzyMatch,
   substringMatchScore,
 } from '@blocksuite/affine-shared/utils';
+import { IS_ANDROID, IS_MOBILE } from '@blocksuite/global/env';
 import { WithDisposable } from '@blocksuite/global/lit';
 import { ArrowDownSmallIcon } from '@blocksuite/icons/lit';
 import { autoPlacement, offset } from '@floating-ui/dom';
@@ -108,7 +109,13 @@ export class SlashMenu extends WithDisposable(LitElement) {
 
   private _queryState: 'off' | 'on' | 'no_result' = 'off';
 
-  private readonly _startRange = this.inlineEditor.getInlineRange();
+  private readonly _startRange = (() => {
+    const range = this.inlineEditor.getInlineRange();
+    if (IS_MOBILE) {
+      console.log('[SlashMenu] _startRange initialized:', range);
+    }
+    return range;
+  })();
 
   private readonly _updateFilteredItems = () => {
     const query = this._query;
@@ -118,6 +125,17 @@ export class SlashMenu extends WithDisposable(LitElement) {
     }
     this._filteredItems = [];
     const searchStr = query.toLowerCase();
+    
+    // Debug logging for mobile devices
+    if (IS_MOBILE) {
+      console.log('[SlashMenu] _updateFilteredItems called:', {
+        query,
+        searchStr,
+        queryLength: searchStr.length,
+        items: this.items.map(item => item.name)
+      });
+    }
+    
     if (searchStr === '' || searchStr.endsWith(' ')) {
       this._queryState = searchStr === '' ? 'off' : 'no_result';
       this._innerSlashMenuContext.searching = false;
@@ -167,7 +185,19 @@ export class SlashMenu extends WithDisposable(LitElement) {
   };
 
   private get _query() {
-    return getTextContentFromInlineRange(this.inlineEditor, this._startRange);
+    const query = getTextContentFromInlineRange(this.inlineEditor, this._startRange);
+    
+    // Debug logging for mobile devices
+    if (IS_MOBILE) {
+      console.log('[SlashMenu] _query calculated:', {
+        query,
+        startRange: this._startRange,
+        currentRange: this.inlineEditor.getInlineRange(),
+        inlineEditor: !!this.inlineEditor
+      });
+    }
+    
+    return query;
   }
 
   get host() {
@@ -250,6 +280,10 @@ export class SlashMenu extends WithDisposable(LitElement) {
         next();
       },
       onInput: isComposition => {
+        if (IS_MOBILE) {
+          console.log('[SlashMenu] createKeydownObserver onInput triggered:', { isComposition });
+        }
+        
         if (isComposition) {
           this._updateFilteredItems();
         } else {
@@ -289,6 +323,9 @@ export class SlashMenu extends WithDisposable(LitElement) {
       type: this.context.model.flavour.split(':').pop(),
       module: 'slash menu',
     });
+
+    // Add Android-specific input monitoring for filtering
+    this._setupMobileInputMonitoring();
   }
 
   protected override willUpdate() {
@@ -307,6 +344,98 @@ export class SlashMenu extends WithDisposable(LitElement) {
       this.disposables.addFromEvent(window, 'resize', updatePosition);
       updatePosition();
     }
+  }
+
+  private _setupMobileInputMonitoring() {
+    // Add additional input monitoring for mobile devices where isComposing blocks normal input detection
+    if (!IS_MOBILE) return;
+
+    const inlineEditor = this.inlineEditor;
+    if (!inlineEditor || !inlineEditor.eventSource) return;
+
+    // Listen for input events that bypass the composition blocking
+    const handleInput = (event: Event) => {
+      console.log('[SlashMenu] Mobile input detected:', {
+        type: event.type,
+        target: event.target,
+        query: this._query,
+        startRange: this._startRange,
+        currentRange: inlineEditor.getInlineRange()
+      });
+      
+      // Update filtered items when input changes
+      this._updateFilteredItems();
+    };
+
+    // Add multiple input event listeners for mobile devices
+    inlineEditor.eventSource.addEventListener('input', handleInput, { passive: true });
+    inlineEditor.eventSource.addEventListener('compositionupdate', handleInput, { passive: true });
+    inlineEditor.eventSource.addEventListener('textInput', handleInput, { passive: true });
+    
+    // Android-specific: Add more aggressive event listeners
+    if (IS_ANDROID) {
+      console.log('[SlashMenu] Setting up Android-specific monitoring');
+      
+      // Listen for ANY change in the editor content
+      const androidFallback = () => {
+        console.log('[SlashMenu] Android fallback triggered');
+        this._updateFilteredItems();
+      };
+      
+      // More Android-specific events
+      inlineEditor.eventSource.addEventListener('beforeinput', androidFallback, { passive: true });
+      inlineEditor.eventSource.addEventListener('compositionstart', androidFallback, { passive: true });
+      inlineEditor.eventSource.addEventListener('compositionend', androidFallback, { passive: true });
+      inlineEditor.eventSource.addEventListener('keyup', androidFallback, { passive: true });
+      
+      // Use MutationObserver for Android as last resort
+      const observer = new MutationObserver(() => {
+        console.log('[SlashMenu] Android MutationObserver triggered');
+        setTimeout(() => this._updateFilteredItems(), 50);
+      });
+      
+      observer.observe(inlineEditor.eventSource, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+      
+      // Also poll periodically on Android
+      const pollInterval = setInterval(() => {
+        this._updateFilteredItems();
+      }, 300);
+      
+      // Clean up Android-specific listeners
+      this.abortController.signal.addEventListener('abort', () => {
+        inlineEditor.eventSource?.removeEventListener('beforeinput', androidFallback);
+        inlineEditor.eventSource?.removeEventListener('compositionstart', androidFallback);
+        inlineEditor.eventSource?.removeEventListener('compositionend', androidFallback);
+        inlineEditor.eventSource?.removeEventListener('keyup', androidFallback);
+        observer.disconnect();
+        clearInterval(pollInterval);
+      });
+    }
+    
+    // Also try listening on the document level as fallback
+    const documentInputHandler = (event: Event) => {
+      // Only handle if the target is within our editor
+      if (event.target && inlineEditor.eventSource?.contains(event.target as Node)) {
+        console.log('[SlashMenu] Document level input:', event.type);
+        setTimeout(() => this._updateFilteredItems(), 10);
+      }
+    };
+    
+    document.addEventListener('input', documentInputHandler, { passive: true });
+    document.addEventListener('compositionupdate', documentInputHandler, { passive: true });
+    
+    // Clean up when aborted
+    this.abortController.signal.addEventListener('abort', () => {
+      inlineEditor.eventSource?.removeEventListener('input', handleInput);
+      inlineEditor.eventSource?.removeEventListener('compositionupdate', handleInput);
+      inlineEditor.eventSource?.removeEventListener('textInput', handleInput);
+      document.removeEventListener('input', documentInputHandler);
+      document.removeEventListener('compositionupdate', documentInputHandler);
+    });
   }
 
   override render() {
