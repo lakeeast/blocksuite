@@ -423,6 +423,14 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         this._closeSubMenu();
       }}
       @click=${() => this.context.onClickItem(item)}
+      @touchstart=${() => {
+        this._activeItem = item;
+        this._closeSubMenu();
+      }}
+      @touchend=${(e: TouchEvent) => {
+        e.preventDefault();
+        this.context.onClickItem(item);
+      }}
     >
       ${icon && html`<div class="slash-menu-item-icon">${icon}</div>`}
       ${tooltip &&
@@ -478,10 +486,18 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         this._openSubMenu(item);
       }}
       @touchstart=${() => {
-        isSubMenuItem(item) &&
-          (this._currentSubMenu === item
-            ? this._closeSubMenu()
-            : this._openSubMenu(item));
+        this._activeItem = item;
+        if (this._currentSubMenu === item) {
+          this._closeSubMenu();
+        } else {
+          this._openSubMenu(item);
+        }
+      }}
+      @touchend=${(e: TouchEvent) => {
+        e.preventDefault();
+        if (!this._currentSubMenu) {
+          this._openSubMenu(item);
+        }
       }}
     >
       ${icon && html`<div class="slash-menu-item-icon">${icon}</div>`}
