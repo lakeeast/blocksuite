@@ -90,6 +90,80 @@ export class SlashMenu extends WithDisposable(LitElement) {
       .catch(console.error);
   };
 
+  private readonly _handleOverlayClick = () => {
+    this.abortController.abort();
+  };
+
+  // Overlay touch tracking (separate from menu item touch tracking)
+  private _overlayTouchStartPos: { x: number; y: number } | null = null;
+  private _overlayHasMoved = false;
+
+  private readonly _handleOverlayTouch = (event: TouchEvent) => {
+    const eventType = event.type;
+    
+    if (eventType === 'touchstart') {
+      const touch = event.touches[0];
+      if (touch) {
+        this._overlayTouchStartPos = { x: touch.clientX, y: touch.clientY };
+        this._overlayHasMoved = false;
+        
+        // Check if touch started within menu bounds
+        const innerMenu = this.querySelector('inner-slash-menu');
+        const menuElement = innerMenu?.shadowRoot?.querySelector('.slash-menu') as HTMLElement;
+        
+        if (menuElement) {
+          const rect = menuElement.getBoundingClientRect();
+          const isWithinMenuBounds = touch.clientX >= rect.left && touch.clientX <= rect.right && 
+                                    touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+          
+          if (IS_MOBILE) {
+            console.log('[SlashMenu] Overlay touch start:', {
+              withinBounds: isWithinMenuBounds,
+              pos: { x: touch.clientX, y: touch.clientY },
+              menuBounds: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
+            });
+          }
+          
+          // If touch starts within menu, we'll ignore the dismissal
+          if (isWithinMenuBounds) {
+            this._overlayHasMoved = true; // Mark as "moved" to prevent dismissal
+          }
+        }
+      }
+    } else if (eventType === 'touchmove') {
+      if (this._overlayTouchStartPos && event.touches[0]) {
+        const touch = event.touches[0];
+        const deltaX = Math.abs(touch.clientX - this._overlayTouchStartPos.x);
+        const deltaY = Math.abs(touch.clientY - this._overlayTouchStartPos.y);
+        
+        // Same threshold as menu items - 5px
+        if (deltaX > 5 || deltaY > 5) {
+          this._overlayHasMoved = true;
+          
+          if (IS_MOBILE) {
+            console.log('[SlashMenu] Overlay movement detected - scroll gesture', { deltaX, deltaY });
+          }
+        }
+      }
+    } else if (eventType === 'touchend') {
+      // Only dismiss if it was a clean tap outside the menu (no movement)
+      if (!this._overlayHasMoved && this._overlayTouchStartPos) {
+        if (IS_MOBILE) {
+          console.log('[SlashMenu] Overlay touch end - dismissing (tap detected outside menu)');
+        }
+        this.abortController.abort();
+      } else {
+        if (IS_MOBILE) {
+          console.log('[SlashMenu] Overlay touch end - ignoring (movement or within menu detected)');
+        }
+      }
+      
+      // Reset tracking
+      this._overlayTouchStartPos = null;
+      this._overlayHasMoved = false;
+    }
+  };
+
   private readonly _initItemPathMap = () => {
     const traverse = (item: SlashMenuItem, path: number[]) => {
       this._itemPathMap.set(item, [...path]);
@@ -267,6 +341,14 @@ export class SlashMenu extends WithDisposable(LitElement) {
         }
 
         if (key === 'Escape') {
+          this.abortController.abort();
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+
+        // On mobile, also close with backspace when query is empty
+        if (IS_MOBILE && key === 'Backspace' && !this._query) {
           this.abortController.abort();
           event.preventDefault();
           event.stopPropagation();
@@ -451,7 +533,10 @@ export class SlashMenu extends WithDisposable(LitElement) {
     return html`${this._queryState !== 'no_result'
         ? html` <div
             class="overlay-mask"
-            @click="${() => this.abortController.abort()}"
+            @click="${this._handleOverlayClick}"
+            @touchstart="${IS_MOBILE ? this._handleOverlayTouch : undefined}"
+            @touchmove="${IS_MOBILE ? this._handleOverlayTouch : undefined}"
+            @touchend="${IS_MOBILE ? this._handleOverlayTouch : undefined}"
           ></div>`
         : nothing}
       <inner-slash-menu
@@ -491,6 +576,60 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
   };
 
   private _currentSubMenu: SlashMenuSubMenu | null = null;
+
+  // Track touch for scroll vs tap detection
+  private _touchStartPos: { x: number; y: number } | null = null;
+  private _hasMoved = false;
+
+  private readonly _handleTouchStart = (event: TouchEvent) => {
+    const touch = event.touches[0];
+    if (touch) {
+      this._touchStartPos = { x: touch.clientX, y: touch.clientY };
+      this._hasMoved = false;
+    }
+  };
+
+  private readonly _handleTouchMove = (event: TouchEvent) => {
+    if (this._touchStartPos && event.touches[0]) {
+      const touch = event.touches[0];
+      const deltaX = Math.abs(touch.clientX - this._touchStartPos.x);
+      const deltaY = Math.abs(touch.clientY - this._touchStartPos.y);
+      
+      // Use smaller threshold for more sensitive detection
+      // 5px threshold catches even small scroll gestures
+      const threshold = 5;
+      
+      if (deltaX > threshold || deltaY > threshold) {
+        this._hasMoved = true;
+        
+        if (IS_MOBILE) {
+          console.log('[InnerSlashMenu] Touch movement detected - scroll gesture', { deltaX, deltaY });
+        }
+      }
+    }
+  };
+
+  private readonly _handleTouchEnd = (callback: () => void) => {
+    return (event: TouchEvent) => {
+      event.preventDefault();
+      
+      // Only execute callback if it was a tap (no significant movement)
+      if (!this._hasMoved) {
+        if (IS_MOBILE) {
+          console.log('[InnerSlashMenu] Touch end - executing action (tap detected)');
+        }
+        callback();
+      } else {
+        if (IS_MOBILE) {
+          console.log('[InnerSlashMenu] Touch end - ignoring action (scroll detected)');
+        }
+      }
+      
+      // Reset tracking
+      this._touchStartPos = null;
+      this._hasMoved = false;
+    };
+  };
 
   private readonly _openSubMenu = (item: SlashMenuSubMenu) => {
     if (item === this._currentSubMenu) return;
@@ -552,14 +691,13 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         this._closeSubMenu();
       }}
       @click=${() => this.context.onClickItem(item)}
-      @touchstart=${() => {
+      @touchstart=${(e: TouchEvent) => {
         this._activeItem = item;
         this._closeSubMenu();
+        this._handleTouchStart(e);
       }}
-      @touchend=${(e: TouchEvent) => {
-        e.preventDefault();
-        this.context.onClickItem(item);
-      }}
+      @touchmove=${this._handleTouchMove}
+      @touchend=${this._handleTouchEnd(() => this.context.onClickItem(item))}
     >
       ${icon && html`<div class="slash-menu-item-icon">${icon}</div>`}
       ${tooltip &&
@@ -614,20 +752,21 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         this._activeItem = item;
         this._openSubMenu(item);
       }}
-      @touchstart=${() => {
+      @touchstart=${(e: TouchEvent) => {
         this._activeItem = item;
         if (this._currentSubMenu === item) {
           this._closeSubMenu();
         } else {
           this._openSubMenu(item);
         }
+        this._handleTouchStart(e);
       }}
-      @touchend=${(e: TouchEvent) => {
-        e.preventDefault();
+      @touchmove=${this._handleTouchMove}
+      @touchend=${this._handleTouchEnd(() => {
         if (!this._currentSubMenu) {
           this._openSubMenu(item);
         }
-      }}
+      })}
     >
       ${icon && html`<div class="slash-menu-item-icon">${icon}</div>`}
       <div slot="suffix" style="transform: rotate(-90deg);">
@@ -777,6 +916,7 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
       class="slash-menu"
       style=${style}
       data-testid=${`sub-menu-${this.depth}`}
+      @touchmove=${this._handleTouchMove}
     >
       ${Object.entries(groups).map(([groupName, items]) =>
         this._renderGroup(groupName, items)
