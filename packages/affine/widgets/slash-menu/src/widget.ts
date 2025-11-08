@@ -32,6 +32,11 @@ const showSlashMenu = debounce(
     abortController?: AbortController;
     configItemTransform: (item: SlashMenuItem) => SlashMenuItem;
   }) => {
+    // Check if we're in cooldown period to prevent flickering
+    if (Date.now() - SlashMenu._lastDismissTime < 300) {
+      return;
+    }
+    
     globalAbortController = abortController;
     const disposables = new DisposableGroup();
     abortController.signal.addEventListener('abort', () =>
@@ -129,6 +134,9 @@ export class AffineSlashMenuWidget extends WidgetComponent {
         : '';
 
       if (!text.endsWith(AFFINE_SLASH_MENU_TRIGGER_KEY)) return;
+      
+      // Check cooldown to prevent flickering
+      if (Date.now() - SlashMenu._lastDismissTime < 300) return;
 
       closeSlashMenu();
       showSlashMenu({
@@ -252,6 +260,9 @@ export class AffineSlashMenuWidget extends WidgetComponent {
 
       // Check if we just added a single slash (not double slash)
       if (text.endsWith(AFFINE_SLASH_MENU_TRIGGER_KEY) && !text.endsWith('//')) {
+        // Check cooldown to prevent flickering
+        if (Date.now() - SlashMenu._lastDismissTime < 300) return;
+        
         // Prevent triggering multiple times quickly
         const now = Date.now();
         if (now - lastInputTime < 200) return;

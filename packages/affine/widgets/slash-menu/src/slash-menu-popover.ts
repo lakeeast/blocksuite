@@ -64,6 +64,9 @@ export class SlashMenu extends WithDisposable(LitElement) {
   }
 
   private readonly _handleClickItem = (item: SlashMenuActionItem) => {
+    // Prevent item selection if we just finished scrolling
+    if (this._isScrolling) return;
+    
     // Need to remove the search string
     // We must to do clean the slash string before we do the action
     // Otherwise, the action may change the model and cause the slash string to be changed
@@ -90,8 +93,33 @@ export class SlashMenu extends WithDisposable(LitElement) {
       .catch(console.error);
   };
 
-  private readonly _handleOverlayClick = () => {
-    this.abortController.abort();
+
+
+  private _handleOverlayClick = (event: MouseEvent) => {
+    const target = event.target as Element;
+    const debugInfo = `Overlay Click:
+Type: ${event.type}
+Pos: ${event.clientX},${event.clientY}
+Target: ${target.tagName}
+Class: ${target.className || 'none'}
+ID: ${target.id || 'none'}
+Cooldown: ${slashMenuCooldown}`;
+    
+    this._createDebugDisplay(debugInfo);
+
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Set cooldown flag to prevent immediate re-triggering
+    setSlashMenuCooldown(true);
+    
+    setTimeout(() => {
+      this.abortController.abort();
+      // Reset cooldown after a short delay
+      setTimeout(() => {
+        setSlashMenuCooldown(false);
+      }, 200);
+    }, 50);
   };
 
   // Overlay touch tracking (separate from menu item touch tracking)
@@ -151,6 +179,7 @@ export class SlashMenu extends WithDisposable(LitElement) {
         if (IS_MOBILE) {
           console.log('[SlashMenu] Overlay touch end - dismissing (tap detected outside menu)');
         }
+        console.log('[SlashMenu] Touch end - aborting:', Date.now());
         this.abortController.abort();
       } else {
         if (IS_MOBILE) {
@@ -283,7 +312,27 @@ export class SlashMenu extends WithDisposable(LitElement) {
     private readonly abortController = new AbortController()
   ) {
     super();
+    console.log('[SlashMenu] Created new slash menu instance:', Date.now());
   }
+
+  private static _lastDismissTime = 0;
+  
+
+
+  private _globalClickHandler: (event: MouseEvent) => void = (event) => {
+    const target = event.target as Element;
+    // Check if the click is outside the slash menu
+    if (!target.closest('slash-menu') && !target.closest('inner-slash-menu')) {
+      // Set cooldown to prevent immediate re-opening
+      SlashMenu._lastDismissTime = Date.now();
+      
+
+      
+      this.abortController.abort();
+    }
+  };
+
+
 
   override connectedCallback() {
     super.connectedCallback();
@@ -295,9 +344,14 @@ export class SlashMenu extends WithDisposable(LitElement) {
     };
 
     this._initItemPathMap();
+    
+    // Add global click listener for outside clicks
+    setTimeout(() => {
+      document.addEventListener('click', this._globalClickHandler, true);
+    }, 100);
+    
 
-    // Add event listeners to prevent document scroll when dropdown is open
-    this._addScrollPrevention();
+
 
     this._disposables.addFromEvent(this, 'mousedown', e => {
       // Prevent input from losing focus
@@ -533,15 +587,7 @@ export class SlashMenu extends WithDisposable(LitElement) {
           visibility: 'hidden',
         };
 
-    return html`${this._queryState !== 'no_result'
-        ? html` <div
-            class="overlay-mask"
-            @click="${this._handleOverlayClick}"
-            @touchstart="${IS_MOBILE ? this._handleOverlayTouch : undefined}"
-            @touchmove="${IS_MOBILE ? this._handleOverlayTouch : undefined}"
-            @touchend="${IS_MOBILE ? this._handleOverlayTouch : undefined}"
-          ></div>`
-        : nothing}
+    return html`
       <inner-slash-menu
         .context=${this._innerSlashMenuContext}
         .menu=${this._queryState === 'off' ? this.items : this._filteredItems}
@@ -580,59 +626,57 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
 
   private _currentSubMenu: SlashMenuSubMenu | null = null;
 
-  // Track touch for scroll vs tap detection
-  private _touchStartPos: { x: number; y: number } | null = null;
-  private _hasMoved = false;
+  private _isScrolling = false;
+  private _scrollTimeout: number | null = null;
+  private _touchStartY: number | null = null;
+  private _touchMoved = false;
 
-  private readonly _handleTouchStart = (event: TouchEvent) => {
-    const touch = event.touches[0];
-    if (touch) {
-      this._touchStartPos = { x: touch.clientX, y: touch.clientY };
-      this._hasMoved = false;
-    }
+  private _handleTouchStart = (event: TouchEvent) => {
+    this._touchStartY = event.touches[0]?.clientY ?? null;
+    this._touchMoved = false;
   };
 
-  private readonly _handleTouchMove = (event: TouchEvent) => {
-    if (this._touchStartPos && event.touches[0]) {
-      const touch = event.touches[0];
-      const deltaX = Math.abs(touch.clientX - this._touchStartPos.x);
-      const deltaY = Math.abs(touch.clientY - this._touchStartPos.y);
-      
-      // Use smaller threshold for more sensitive detection
-      // 5px threshold catches even small scroll gestures
-      const threshold = 5;
-      
-      if (deltaX > threshold || deltaY > threshold) {
-        this._hasMoved = true;
-        
-        if (IS_MOBILE) {
-          console.log('[InnerSlashMenu] Touch movement detected - scroll gesture', { deltaX, deltaY });
-        }
+  private _handleTouchMove = (event: TouchEvent) => {
+    if (this._touchStartY !== null) {
+      const currentY = event.touches[0]?.clientY ?? 0;
+      const deltaY = Math.abs(currentY - this._touchStartY);
+      if (deltaY > 5) { // 5px threshold
+        this._touchMoved = true;
       }
     }
   };
 
-  private readonly _handleTouchEnd = (callback: () => void) => {
-    return (event: TouchEvent) => {
-      event.preventDefault();
-      
-      // Only execute callback if it was a tap (no significant movement)
-      if (!this._hasMoved) {
-        if (IS_MOBILE) {
-          console.log('[InnerSlashMenu] Touch end - executing action (tap detected)');
-        }
-        callback();
-      } else {
-        if (IS_MOBILE) {
-          console.log('[InnerSlashMenu] Touch end - ignoring action (scroll detected)');
-        }
+  private _handleTouchEnd = () => {
+    if (this._touchMoved) {
+      this._isScrolling = true;
+      if (this._scrollTimeout) {
+        clearTimeout(this._scrollTimeout);
       }
-      
-      // Reset tracking
-      this._touchStartPos = null;
-      this._hasMoved = false;
-    };
+      this._scrollTimeout = window.setTimeout(() => {
+        this._isScrolling = false;
+      }, 300); // Longer timeout for touch
+    }
+    this._touchStartY = null;
+    this._touchMoved = false;
   };
+
+  private _globalClickHandler = (event: Event) => {
+    // Only handle actual click events, not touch or other events
+    if (event.type !== 'click') return;
+    
+    // Don't dismiss if we're currently scrolling
+    if (this._isScrolling) return;
+    
+    const target = event.target as Element;
+    if (!this.contains(target)) {
+      this.abortController.abort();
+      SlashMenu._lastDismissTime = Date.now();
+    }
+  };
+
+
+
+
 
   private readonly _openSubMenu = (item: SlashMenuSubMenu) => {
     if (item === this._currentSubMenu) return;
@@ -693,14 +737,12 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         this._activeItem = item;
         this._closeSubMenu();
       }}
-      @click=${() => this.context.onClickItem(item)}
-      @touchstart=${(e: TouchEvent) => {
-        this._activeItem = item;
-        this._closeSubMenu();
-        this._handleTouchStart(e);
+      @click=${() => {
+        // Prevent item selection if we just finished scrolling
+        if (this._isScrolling) return;
+        this.context.onClickItem(item);
       }}
-      @touchmove=${this._handleTouchMove}
-      @touchend=${this._handleTouchEnd(() => this.context.onClickItem(item))}
+
     >
       ${icon && html`<div class="slash-menu-item-icon">${icon}</div>`}
       ${tooltip &&
@@ -755,21 +797,14 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         this._activeItem = item;
         this._openSubMenu(item);
       }}
-      @touchstart=${(e: TouchEvent) => {
+      @click=${() => {
         this._activeItem = item;
         if (this._currentSubMenu === item) {
           this._closeSubMenu();
         } else {
           this._openSubMenu(item);
         }
-        this._handleTouchStart(e);
       }}
-      @touchmove=${this._handleTouchMove}
-      @touchend=${this._handleTouchEnd(() => {
-        if (!this._currentSubMenu) {
-          this._openSubMenu(item);
-        }
-      })}
     >
       ${icon && html`<div class="slash-menu-item-icon">${icon}</div>`}
       <div slot="suffix" style="transform: rotate(-90deg);">
@@ -808,42 +843,28 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
       }
     });
 
-    // Prevent document scrolling when scrolling within the dropdown
-    this.addEventListener('wheel', (event) => {
-      // Stop the wheel event from propagating to prevent document scroll
-      event.stopPropagation();
-    }, { passive: false });
-
-    this.addEventListener('touchmove', (event) => {
-      // Check if the touch move is within the scrollable menu area
-      const target = event.target as HTMLElement;
-      const menuElement = target.closest('.slash-menu');
-      
-      if (menuElement) {
-        // If we're scrolling within the menu, prevent document scroll
-        const { scrollTop, scrollHeight, clientHeight } = menuElement;
-        const isAtTop = scrollTop === 0;
-        const isAtBottom = scrollTop + clientHeight >= scrollHeight;
-        
-        // Get touch movement direction
-        const touch = event.touches[0];
-        if (touch && this._overlayTouchStartPos) {
-          const deltaY = touch.clientY - this._overlayTouchStartPos.y;
-          const isScrollingUp = deltaY > 0;
-          const isScrollingDown = deltaY < 0;
-          
-          // Prevent document scroll if:
-          // - Not at boundaries, or
-          // - At top but trying to scroll down into menu, or  
-          // - At bottom but trying to scroll up into menu
-          if (!isAtTop && !isAtBottom || 
-              (isAtTop && isScrollingDown) || 
-              (isAtBottom && isScrollingUp)) {
-            event.stopPropagation();
-          }
-        }
+    // Track scrolling to prevent dismissal during scroll
+    this.addEventListener('scroll', () => {
+      this._isScrolling = true;
+      if (this._scrollTimeout) {
+        clearTimeout(this._scrollTimeout);
       }
-    }, { passive: false });
+      this._scrollTimeout = window.setTimeout(() => {
+        this._isScrolling = false;
+      }, 150);
+    });
+
+    // Add touch event listeners to detect scrolling vs tapping
+    this.addEventListener('touchstart', this._handleTouchStart, { passive: true });
+    this.addEventListener('touchmove', this._handleTouchMove, { passive: true });
+    this.addEventListener('touchend', this._handleTouchEnd, { passive: true });
+
+    // Add a small delay to ensure the menu is rendered before setting up handlers
+    setTimeout(() => {
+      document.addEventListener('click', this._globalClickHandler, true);
+    }, 0);
+
+
 
     const inlineEditor = getInlineEditorByModel(
       this.context.std,
@@ -939,8 +960,14 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
     );
   }
 
+
+
   override disconnectedCallback() {
     this.abortController.abort();
+    document.removeEventListener('click', this._globalClickHandler, true);
+    if (this._scrollTimeout) {
+      clearTimeout(this._scrollTimeout);
+    }
   }
 
   override render() {
@@ -956,7 +983,6 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
       class="slash-menu"
       style=${style}
       data-testid=${`sub-menu-${this.depth}`}
-      @touchmove=${this._handleTouchMove}
     >
       ${Object.entries(groups).map(([groupName, items]) =>
         this._renderGroup(groupName, items)
@@ -990,33 +1016,4 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
 
   @property({ attribute: false })
   accessor menu!: SlashMenuItem[];
-
-  private _addScrollPrevention() {
-    // Add document-wide scroll prevention when dropdown is open
-    const handleDocumentWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-    const handleDocumentTouchMove = (e: TouchEvent) => {
-      // Allow scrolling within the dropdown, prevent everywhere else
-      const target = e.target as Element;
-      const isWithinDropdown = target && this.contains(target);
-      
-      if (!isWithinDropdown) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-
-    // Add document-level event listeners
-    document.addEventListener('wheel', handleDocumentWheel, { passive: false });
-    document.addEventListener('touchmove', handleDocumentTouchMove, { passive: false });
-
-    // Clean up when dropdown is closed
-    this.abortController.signal.addEventListener('abort', () => {
-      document.removeEventListener('wheel', handleDocumentWheel);
-      document.removeEventListener('touchmove', handleDocumentTouchMove);
-    });
-  }
 }
