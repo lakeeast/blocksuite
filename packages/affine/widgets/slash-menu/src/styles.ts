@@ -12,6 +12,10 @@ export const styles = css`
     width: 100vw;
     height: 100vh;
     z-index: var(--affine-z-index-popover);
+    
+    /* Prevent document scrolling when dropdown is open */
+    overscroll-behavior: contain;
+    touch-action: none;
   }
 
   .slash-menu {
@@ -30,6 +34,11 @@ export const styles = css`
     z-index: var(--affine-z-index-popover);
     user-select: none;
     /* transition: max-height 0.2s ease-in-out; */
+    
+    /* Prevent document scrolling when scrolling within dropdown */
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
 
   ${scrollbarStyle('.slash-menu')}

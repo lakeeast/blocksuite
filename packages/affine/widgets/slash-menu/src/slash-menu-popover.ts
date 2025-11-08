@@ -296,6 +296,9 @@ export class SlashMenu extends WithDisposable(LitElement) {
 
     this._initItemPathMap();
 
+    // Add event listeners to prevent document scroll when dropdown is open
+    this._addScrollPrevention();
+
     this._disposables.addFromEvent(this, 'mousedown', e => {
       // Prevent input from losing focus
       e.preventDefault();
@@ -805,6 +808,43 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
       }
     });
 
+    // Prevent document scrolling when scrolling within the dropdown
+    this.addEventListener('wheel', (event) => {
+      // Stop the wheel event from propagating to prevent document scroll
+      event.stopPropagation();
+    }, { passive: false });
+
+    this.addEventListener('touchmove', (event) => {
+      // Check if the touch move is within the scrollable menu area
+      const target = event.target as HTMLElement;
+      const menuElement = target.closest('.slash-menu');
+      
+      if (menuElement) {
+        // If we're scrolling within the menu, prevent document scroll
+        const { scrollTop, scrollHeight, clientHeight } = menuElement;
+        const isAtTop = scrollTop === 0;
+        const isAtBottom = scrollTop + clientHeight >= scrollHeight;
+        
+        // Get touch movement direction
+        const touch = event.touches[0];
+        if (touch && this._overlayTouchStartPos) {
+          const deltaY = touch.clientY - this._overlayTouchStartPos.y;
+          const isScrollingUp = deltaY > 0;
+          const isScrollingDown = deltaY < 0;
+          
+          // Prevent document scroll if:
+          // - Not at boundaries, or
+          // - At top but trying to scroll down into menu, or  
+          // - At bottom but trying to scroll up into menu
+          if (!isAtTop && !isAtBottom || 
+              (isAtTop && isScrollingDown) || 
+              (isAtBottom && isScrollingUp)) {
+            event.stopPropagation();
+          }
+        }
+      }
+    }, { passive: false });
+
     const inlineEditor = getInlineEditorByModel(
       this.context.std,
       this.context.model
@@ -950,4 +990,33 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
 
   @property({ attribute: false })
   accessor menu!: SlashMenuItem[];
+
+  private _addScrollPrevention() {
+    // Add document-wide scroll prevention when dropdown is open
+    const handleDocumentWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleDocumentTouchMove = (e: TouchEvent) => {
+      // Allow scrolling within the dropdown, prevent everywhere else
+      const target = e.target as Element;
+      const isWithinDropdown = target && this.contains(target);
+      
+      if (!isWithinDropdown) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    // Add document-level event listeners
+    document.addEventListener('wheel', handleDocumentWheel, { passive: false });
+    document.addEventListener('touchmove', handleDocumentTouchMove, { passive: false });
+
+    // Clean up when dropdown is closed
+    this.abortController.signal.addEventListener('abort', () => {
+      document.removeEventListener('wheel', handleDocumentWheel);
+      document.removeEventListener('touchmove', handleDocumentTouchMove);
+    });
+  }
 }
