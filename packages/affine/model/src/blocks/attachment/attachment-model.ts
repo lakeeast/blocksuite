@@ -34,6 +34,7 @@ export const AttachmentBlockStyles = [
   'cubeThick',
   'horizontalThin',
   'pdf',
+  'dicom',
   'citation',
 ] as const satisfies EmbedCardStyle[];
 

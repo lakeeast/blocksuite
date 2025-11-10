@@ -213,6 +213,13 @@ reload = () => {
   protected onClick(event: MouseEvent) {
     if (event.defaultPrevented) return;
 
+    // Don't intercept clicks on embedded content (like DICOM viewers)
+    // to allow proper mouse interactions within iframes
+    const target = event.target as Element;
+    if (target.closest('.affine-attachment-embed-container')) {
+      return; // Let the embedded content handle the event
+    }
+
     event.stopPropagation();
 
     if (!this.selected$.peek()) {

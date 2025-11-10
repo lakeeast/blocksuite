@@ -532,20 +532,18 @@ class DicomViewerPopup extends LitElement {
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      background: rgba(0, 0, 0, 0.8);
       z-index: 1000;
     }
     .popup-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: white;
-      width: 90vw;
-      height: 100vh;
-      position: relative;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
     .close-button {
       position: absolute;
@@ -559,6 +557,7 @@ class DicomViewerPopup extends LitElement {
       cursor: pointer;
       font-size: 16px;
       z-index: 1001;
+      pointer-events: auto;
     }
     .close-button:hover {
       background: #d9363e;
@@ -570,97 +569,100 @@ class DicomViewerPopup extends LitElement {
   std: any = null;
   onClose: () => void = () => {};
 
+  override connectedCallback() {
+    super.connectedCallback();
+    // Add keyboard listener for Escape key
+    document.addEventListener('keydown', this._handleKeyDown);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener('keydown', this._handleKeyDown);
+  }
+
+  private _handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      this._handleClose();
+    }
+  };
+
   override firstUpdated() {
-    // No direct script loading here; handled in iframe
+    // Load DICOM viewer directly without iframe
+    this._setupDirectDicomViewer();
   }
 
   override render() {
     return html`
-      <div class="popup-overlay" @click=${this._handleOutsideClick}>
+      <div class="popup-overlay">
         <div class="popup-container">
-          <iframe
-            id="dicom-viewer-iframe"
-            style="width: 100%; height: 100%; border: none;"
-            @load=${this._initializeIframe}
-          ></iframe>
+          <button class="close-button" @click=${this._handleClose}>关闭</button>
+          <div
+            id="dicom-viewer-container"
+            style="width: 100%; height: 100%; position: relative; background: white;"
+          ></div>
         </div>
       </div>
     `;
   }
 
-  private _initializeIframe() {
-    const iframe = this.shadowRoot?.querySelector('#dicom-viewer-iframe') as HTMLIFrameElement;
-    if (!iframe || !iframe.contentDocument || !iframe.contentWindow) {
-      console.error('Iframe not ready');
-      toast(this.block?.host, 'Failed to load DICOM viewer');
-      return;
-    }
-
-    const doc = iframe.contentDocument;
-    const win = iframe.contentWindow;
-
-    // Add Material Design CSS links to iframe head
-    const link1 = doc.createElement('link');
-    link1.rel = 'stylesheet';
-    link1.href = '/block/material/purple-green.css';
-    doc.head.appendChild(link1);
-
-    const link2 = doc.createElement('link');
-    link2.rel = 'stylesheet';
-    link2.href = '/block/material/material-design-icons.css';
-    doc.head.appendChild(link2);
-
-    // Alias the main window's decoder to the iframe's window
-    if (window.decoder) {
-      win.decoder = window.decoder;
-      console.log('Aliased parent decoder to iframe window');
-    } else {
-      console.error('Parent decoder not found');
-      toast(this.block?.host, 'Failed to load DICOM viewer');
-      return;
-    }
-
-    // Now load quantant-viewer.js
-    const script = doc.createElement('script');
-    script.src = '/block/qt-sdk/quantant-viewer.js';
-    script.async = true;
-    script.onload = () => {
-      console.log('quantant-viewer.js loaded in iframe');
-      this._setupViewerInIframe(iframe);
-    };
-    script.onerror = () => {
-      console.error('Failed to load quantant-viewer.js in iframe');
-      toast(this.block?.host, 'Failed to load DICOM viewer');
-    };
-    doc.head.appendChild(script);
+  override firstUpdated() {
+    // Load DICOM viewer directly without iframe
+    this._setupDirectDicomViewer();
   }
 
-  private async _setupViewerInIframe(iframe: HTMLIFrameElement) {
-    const doc = iframe.contentDocument!;
-    const win = iframe.contentWindow!;
+  private _setupDirectDicomViewer() {
+    const container = this.shadowRoot?.querySelector('#dicom-viewer-container') as HTMLElement;
+    
+    if (!container) {
+      console.error('DICOM container not found');
+      toast(this.block?.host, 'Failed to load DICOM viewer');
+      return;
+    }
 
-    // Create the <quantantdk-slide-dicom> element inside the iframe
-    const dicomElement = doc.createElement('quantantdk-slide-dicom');
+    // Add Material Design CSS to document head for proper styling
+    if (!document.querySelector('link[href="/block/material/purple-green.css"]')) {
+      const link1 = document.createElement('link');
+      link1.rel = 'stylesheet';
+      link1.href = '/block/material/purple-green.css';
+      document.head.appendChild(link1);
+    }
+
+    if (!document.querySelector('link[href="/block/material/material-design-icons.css"]')) {
+      const link2 = document.createElement('link');
+      link2.rel = 'stylesheet';
+      link2.href = '/block/material/material-design-icons.css';
+      document.head.appendChild(link2);
+    }
+
+    // Load quantant-viewer.js
+    const script = document.createElement('script');
+    script.src = '/block/qt-sdk/quantant-viewer.js';
+    script.async = true;
+    script.onload = () => this._createDicomElement(container);
+    script.onerror = () => toast(this.block?.host, 'Failed to load DICOM viewer');
+    document.head.appendChild(script);
+  }
+
+  private async _createDicomElement(container: HTMLElement) {
+    // Create the <quantantdk-slide-dicom> element directly
+    const dicomElement = document.createElement('quantantdk-slide-dicom');
     dicomElement.setAttribute('ng-version', '8.2.14');
     dicomElement.setAttribute('share_type', 'instant');
 
     // Add slots
-    const titleSlot = doc.createElement('h1');
+    const titleSlot = document.createElement('h1');
     titleSlot.setAttribute('slot', 'title');
     dicomElement.appendChild(titleSlot);
 
-    const contentSlot = doc.createElement('section');
+    const contentSlot = document.createElement('section');
     contentSlot.setAttribute('slot', 'content');
     dicomElement.appendChild(contentSlot);
 
-    // Style the element to fill the iframe
+    // Basic styling
     dicomElement.style.width = '100%';
     dicomElement.style.height = '100%';
-
-    // Append to iframe body
-    doc.body.style.margin = '0';
-    doc.body.style.overflow = 'hidden';
-    doc.body.appendChild(dicomElement);
+    
+    container.appendChild(dicomElement);
 
     // Now perform the studyManager setup
     const workspace = this.std?.store.workspace as any;
@@ -688,7 +690,7 @@ class DicomViewerPopup extends LitElement {
     try {
       // Set studyManager on the dicomElement
       await (dicomElement as any).setStudyManager(studyManager);
-      console.log(`Set studyManager for dicomGuid ${dicomGuid}`);
+      console.log(`Set studyManager for dicomGuid ${dicomGuid} - direct mode`);
 
       // Add event listeners for weasisEvent and ohifEvent
       const weasisListener = (event: any) => {
@@ -747,15 +749,8 @@ class DicomViewerPopup extends LitElement {
         });
       }
     } catch (error) {
-      console.error('Failed to initialize DICOM viewer in iframe:', error);
+      console.error('Failed to initialize DICOM viewer directly:', error);
       toast(this.block?.host, 'Failed to load DICOM viewer');
-    }
-  }
-
-  private _handleOutsideClick(e: MouseEvent) {
-    const target = e.target as HTMLElement;
-    if (!target.closest('.popup-container')) {
-      this._handleClose();
     }
   }
 

@@ -32,6 +32,7 @@ export const EMBED_CARD_WIDTH: Record<EmbedCardStyle, number> = {
   html: 752,
   syncedDoc: SYNCED_DEFAULT_WIDTH,
   pdf: 537 + 24 + 2,
+  dicom: 537 + 24 + 2, // Same as PDF for DICOM viewer
   citation: 752,
 };
 
@@ -47,6 +48,7 @@ export const EMBED_CARD_HEIGHT: Record<EmbedCardStyle, number> = {
   html: 544,
   syncedDoc: 455,
   pdf: 759 + 46 + 24 + 2,
+  dicom: 759 + 46 + 24 + 2, // Same as PDF for DICOM viewer
   citation: 52,
 };
 

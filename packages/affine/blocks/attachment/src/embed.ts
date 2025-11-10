@@ -211,6 +211,43 @@ const embedConfig: AttachmentEmbedConfig[] = [
     },
   },
   {
+    name: 'dicom',
+    shouldShowStatus: true,
+    check: (model, maxFileSize) =>
+      (model.props.type === 'application/dicomdir' || model.props.name?.endsWith('.dicomdir')) && model.props.size <= maxFileSize,
+    action: model => {
+      const bound = Bound.deserialize(model.props.xywh);
+      bound.w = EMBED_CARD_WIDTH.dicom;
+      bound.h = EMBED_CARD_HEIGHT.dicom;
+      model.store.updateBlock(model, {
+        embed: true,
+        style: 'dicom',
+        xywh: bound.serialize(),
+      });
+    },
+    render: (model, blobUrl) => {
+      // Render DICOM viewer iframe without event mask to allow mouse interactions
+      return html`
+        <iframe
+          style=${styleMap({
+            width: '100%',
+            minHeight: '480px',
+            colorScheme: 'auto',
+            pointerEvents: 'auto', // Explicitly enable pointer events
+          })}
+          src=${blobUrl}
+          loading="lazy"
+          scrolling="auto"
+          frameborder="no"
+          allowTransparency
+          allowfullscreen
+          credentialless
+        ></iframe>
+        <!-- No event mask for DICOM to allow 3D mouse interactions -->
+      `;
+    },
+  },
+  {
     name: 'video',
     shouldShowStatus: true,
     check: (model, maxFileSize) =>
