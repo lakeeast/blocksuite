@@ -548,7 +548,7 @@ class DicomViewerPopup extends LitElement {
     .close-button {
       position: absolute;
       top: 10px;
-      right: 130px;
+      right: 55px;
       background: #ff4d4f;
       color: white;
       border: none;
