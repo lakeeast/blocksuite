@@ -853,158 +853,191 @@ export class StarterDebugMenu extends ShadowlessElement {
 
       const fileFullPath = 'affine.zip';
       const fileUrl = storage.getFileUrl(fileFullPath);
-      if (!fileUrl) {
-        throw new Error(`Failed to get file URL for snapshot: ${fileFullPath}`);
+      const urlParams = new URLSearchParams(window.location.search);
+      const isReadonly = urlParams.get('readonly') === 'true';
+      let response: Response | undefined;
+      try {
+        response = await fetch(fileUrl);
+      } catch (err) {
+        response = undefined;
       }
+      if (response && response.ok) {
+        // Normal case: affine.zip exists, load as before
+        const snapshotBlob = await response.blob();
 
-      const response = await fetch(fileUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch snapshot: ${response.statusText}`);
-      }
-      const snapshotBlob = await response.blob();
+        // Clear existing documents from the collection
+        Array.from(this.collection.docs.keys()).forEach(id => {
+          this.collection.removeDoc(id);
+        });
 
-      // Clear existing documents from the collection
-      Array.from(this.collection.docs.keys()).forEach(id => {
-        this.collection.removeDoc(id);
-      });
+        // Import documents into the collection
+        const docs = await ZipTransformer.importDocs(
+          this.collection,
+          this.editor.doc.schema,
+          snapshotBlob
+        );
 
-      // Import documents into the collection
-      const docs = await ZipTransformer.importDocs(
-        this.collection,
-        this.editor.doc.schema,
-        snapshotBlob
-      );
+        if (docs.length === 0) {
+          throw new Error('No documents found in snapshot');
+        }
 
-      if (docs.length === 0) {
-        throw new Error('No documents found in snapshot');
-      }
+        // Load manifest and fetch attachments
+        const workspace = this.collection as TestWorkspace;
+        if (!workspace || !workspace.studyManagerRegistry) {
+          console.error('TestWorkspace or studyManagerRegistry not found');
+          // Proceed with loading document, but DICOM studies won't be loaded
+        }
 
-      // Load manifest and fetch attachments
-      const workspace = this.collection as TestWorkspace;
-      if (!workspace || !workspace.studyManagerRegistry) {
-        console.error('TestWorkspace or studyManagerRegistry not found');
-        // Proceed with loading document, but DICOM studies won't be loaded
-      }
+        // Load manifest and pre-load image blobs
+        const zip = await JSZip.loadAsync(snapshotBlob);
+        const manifestFile = zip.file('manifest.json');
+        const blobSync = this.editor.std.store.blobSync;
+        if (manifestFile) {
+          const manifest = JSON.parse(await manifestFile.async('string')) as {
+            attachments: { sourceId: string; cloudPath: string; name: string; type: string }[];
+          };
+          console.log('Loaded manifest with attachments:', manifest.attachments);
 
-      // Load manifest and pre-load image blobs
-      const zip = await JSZip.loadAsync(snapshotBlob);
-      const manifestFile = zip.file('manifest.json');
-      const blobSync = this.editor.std.store.blobSync;
-      if (manifestFile) {
-        const manifest = JSON.parse(await manifestFile.async('string')) as {
-          attachments: { sourceId: string; cloudPath: string; name: string; type: string }[];
-        };
-        console.log('Loaded manifest with attachments:', manifest.attachments);
+          for (const attachment of manifest.attachments) {
+            const { sourceId, cloudPath, name, type } = attachment;
+            console.log('Processing attachment:', { sourceId, cloudPath, name, type });
 
-        for (const attachment of manifest.attachments) {
-          const { sourceId, cloudPath, name, type } = attachment;
-          console.log('Processing attachment:', { sourceId, cloudPath, name, type });
-
-          let localBlob = await blobSync.get(sourceId);
-          if (!localBlob) { // Pre-load only images
-            const fileUrl = storage.getFileUrl(cloudPath);
-            console.log('Fetching blob from:', fileUrl);
-            if (fileUrl) {
-              try {
-                const blobResponse = await fetch(fileUrl);
-                if (blobResponse.ok) {
-                  const blob = await blobResponse.blob();
-                  await blobSync.set(sourceId, new File([blob], name, { type }));
-                  localBlob = await blobSync.get(sourceId);
-                  if (localBlob) {
-                    console.log('Blob stored successfully:', sourceId, 'size:', blob.size);
+            let localBlob = await blobSync.get(sourceId);
+            if (!localBlob) { // Pre-load only images
+              const fileUrl = storage.getFileUrl(cloudPath);
+              console.log('Fetching blob from:', fileUrl);
+              if (fileUrl) {
+                try {
+                  const blobResponse = await fetch(fileUrl);
+                  if (blobResponse.ok) {
+                    const blob = await blobResponse.blob();
+                    await blobSync.set(sourceId, new File([blob], name, { type }));
+                    localBlob = await blobSync.get(sourceId);
+                    if (localBlob) {
+                      console.log('Blob stored successfully:', sourceId, 'size:', blob.size);
+                    } else {
+                      throw new Error(`Failed to verify blob storage for sourceId: ${sourceId}`);
+                    }
                   } else {
-                    throw new Error(`Failed to verify blob storage for sourceId: ${sourceId}`);
+                    console.error(`Failed to fetch blob for ${sourceId}: ${blobResponse.statusText}`);
+                    if (this.editor.host) {
+                      toast(this.editor.host, `Failed to fetch blob for ${name}`);
+                    }
                   }
-                } else {
-                  console.error(`Failed to fetch blob for ${sourceId}: ${blobResponse.statusText}`);
+                } catch (error) {
+                  console.error(`Failed to fetch blob for ${sourceId}:`, error);
                   if (this.editor.host) {
                     toast(this.editor.host, `Failed to fetch blob for ${name}`);
                   }
                 }
+              }
+            } else if (localBlob) {
+              console.log('Blob already exists locally:', sourceId, 'size:', localBlob.size);
+            }
+
+            // Reconstruct studyManager for DICOM attachments
+            if (type === 'application/dicomdir' && name.endsWith('.dicomdir') && workspace?.studyManagerRegistry) {
+              const guid = name.replace('.dicomdir', '');
+              try {
+                const studyManager = decoder.CoreApi.createStudy();
+                studyManager.setAllowDownload(true);
+                await decoder.CoreApi.populateStudy(studyManager, storage, cloudPath);
+                workspace.studyManagerRegistry.set(guid, studyManager);
+                console.log(`Recreated studyManager for guid ${guid} using cloudPath ${cloudPath}`);
               } catch (error) {
-                console.error(`Failed to fetch blob for ${sourceId}:`, error);
+                console.error(`Failed to recreate studyManager for guid ${guid}:`, error);
                 if (this.editor.host) {
-                  toast(this.editor.host, `Failed to fetch blob for ${name}`);
+                  toast(this.editor.host, `Failed to load DICOM study for ${name}`);
                 }
               }
             }
-          } else if (localBlob) {
-            console.log('Blob already exists locally:', sourceId, 'size:', localBlob.size);
           }
-
-          // Reconstruct studyManager for DICOM attachments
-          if (type === 'application/dicomdir' && name.endsWith('.dicomdir') && workspace?.studyManagerRegistry) {
-            const guid = name.replace('.dicomdir', '');
-            try {
-              const studyManager = decoder.CoreApi.createStudy();
-              studyManager.setAllowDownload(true);
-              await decoder.CoreApi.populateStudy(studyManager, storage, cloudPath);
-              workspace.studyManagerRegistry.set(guid, studyManager);
-              console.log(`Recreated studyManager for guid ${guid} using cloudPath ${cloudPath}`);
-            } catch (error) {
-              console.error(`Failed to recreate studyManager for guid ${guid}:`, error);
-              if (this.editor.host) {
-                toast(this.editor.host, `Failed to load DICOM study for ${name}`);
-              }
-            }
+        } else {
+          console.warn('No manifest.json found in snapshot');
+          if (this.editor.host) {
+            toast(this.editor.host, 'No manifest found; attachments not loaded');
           }
         }
-      } else {
-        console.warn('No manifest.json found in snapshot');
+
+        const newDoc = docs[0]; // Adjust this if you need a specific document
+        if (!newDoc) {
+          throw new Error('Failed to load document from snapshot');
+        }
+
+        if (!newDoc.loaded) {
+          newDoc.load(); // Ensure the document is loaded
+        }
+
+        if (credential.allowWrite == false) {
+          newDoc.readonly = true;
+          this.readonly = true; // Update reactive property
+        } else {
+          newDoc.readonly = false;
+          this.readonly = false; // Update reactive property
+        }
+
+        // Update the editor's document
+        this.editor.doc = newDoc;
+        newDoc.history.store.resetHistory();
+        this._rebindHistorySubscription(this.doc);
+        // Update the editor's mode (if necessary)
+        const modeService = this.editor.std.provider.get(DocModeProvider);
+        this.editor.mode = modeService.getPrimaryMode(newDoc.id);
+
+        // Ensure attachment blocks are initialized
+        const attachmentBlocks = newDoc.getBlocksByFlavour('affine:attachment');
+        console.log('Attachment blocks found:', attachmentBlocks.length);
+        for (const block of attachmentBlocks) {
+          const blockComponent = this.editor.std.store.getBlock(block.id);
+          if (blockComponent && blockComponent instanceof AttachmentBlockComponent) {
+            console.log('Initialized attachment block:', block.id, 'sourceId:', block.model.props.sourceId);
+          }
+        }
+
+        // Notify the editor's host to re-render
         if (this.editor.host) {
-          toast(this.editor.host, 'No manifest found; attachments not loaded');
+          this.editor.host.requestUpdate();
+          toast(this.editor.host, 'Snapshot and DICOM studies loaded successfully.');
         }
-      }
 
-      const newDoc = docs[0]; // Adjust this if you need a specific document
-      if (!newDoc) {
-        throw new Error('Failed to load document from snapshot');
-      }
-
-      if (!newDoc.loaded) {
-        newDoc.load(); // Ensure the document is loaded
-      }
-
-      if (credential.allowWrite == false) {
-        newDoc.readonly = true;
-        this.readonly = true; // Update reactive property
+        window.parent.postMessage(
+          {
+            type: 'load-complete',
+            documentId: newDoc.id,
+          },
+          '*'
+        );
+      } else if (isReadonly) {
+        // Special case: affine.zip missing and readonly=true
+        // Do not attempt to load or fake a document
+        // Set UI to readonly and show 'no document' state
+        this.readonly = true;
+        // Enforce readonly mode in the editor
+        if (this.editor.doc) {
+          this.editor.doc.readonly = true;
+        }
+        // Set editor mode to a non-editable state if possible
+        if (this.editor.mode && typeof this.editor.mode === 'object' && 'setReadonly' in this.editor.mode) {
+          this.editor.mode.setReadonly(true);
+        }
+        // Optionally, block all input events at the host level
+        if (this.editor.host) {
+          this.editor.host.requestUpdate();
+          this.editor.host.addEventListener('keydown', e => e.preventDefault(), { capture: true });
+          this.editor.host.addEventListener('input', e => e.preventDefault(), { capture: true });
+          toast(this.editor.host, 'No document available in readonly mode.');
+        }
+        window.parent.postMessage(
+          {
+            type: 'load-complete',
+            documentId: undefined,
+          },
+          '*'
+        );
+        return;
       } else {
-        newDoc.readonly = false;
-        this.readonly = false; // Update reactive property
+        throw new Error(`Failed to get file URL for snapshot: ${fileFullPath}`);
       }
-
-      // Update the editor's document
-      this.editor.doc = newDoc;
-      newDoc.history.store.resetHistory();
-      this._rebindHistorySubscription(this.doc);
-      // Update the editor's mode (if necessary)
-      const modeService = this.editor.std.provider.get(DocModeProvider);
-      this.editor.mode = modeService.getPrimaryMode(newDoc.id);
-
-      // Ensure attachment blocks are initialized
-      const attachmentBlocks = newDoc.getBlocksByFlavour('affine:attachment');
-      console.log('Attachment blocks found:', attachmentBlocks.length);
-      for (const block of attachmentBlocks) {
-        const blockComponent = this.editor.std.store.getBlock(block.id);
-        if (blockComponent && blockComponent instanceof AttachmentBlockComponent) {
-          console.log('Initialized attachment block:', block.id, 'sourceId:', block.model.props.sourceId);
-        }
-      }
-
-      // Notify the editor's host to re-render
-      if (this.editor.host) {
-        this.editor.host.requestUpdate();
-        toast(this.editor.host, 'Snapshot and DICOM studies loaded successfully.');
-      }
-
-      window.parent.postMessage(
-        {
-          type: 'load-complete',
-          documentId: newDoc.id,
-        },
-        '*'
-      );
     } catch (error) {
       console.error('Failed to load snapshot:', error);
       window.parent.postMessage(
