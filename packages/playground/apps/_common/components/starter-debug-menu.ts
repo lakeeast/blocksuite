@@ -1012,19 +1012,11 @@ export class StarterDebugMenu extends ShadowlessElement {
         // Do not attempt to load or fake a document
         // Set UI to readonly and show 'no document' state
         this.readonly = true;
-        // Enforce readonly mode in the editor
         if (this.editor.doc) {
           this.editor.doc.readonly = true;
         }
-        // Set editor mode to a non-editable state if possible
-        if (this.editor.mode && typeof this.editor.mode === 'object' && 'setReadonly' in this.editor.mode) {
-          this.editor.mode.setReadonly(true);
-        }
-        // Optionally, block all input events at the host level
         if (this.editor.host) {
           this.editor.host.requestUpdate();
-          this.editor.host.addEventListener('keydown', e => e.preventDefault(), { capture: true });
-          this.editor.host.addEventListener('input', e => e.preventDefault(), { capture: true });
           toast(this.editor.host, 'No document available in readonly mode.');
         }
         window.parent.postMessage(
