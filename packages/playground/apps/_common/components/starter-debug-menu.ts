@@ -592,7 +592,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         '*'
       );
       if (this.editor.host) {
-        toast(this.editor.host, '数据上传中，请稍后。');
+        toast(this.editor.host, '数据上传中，请稍候。');
       }
     } catch (error) {
       console.error('Failed to request save:', error);
