@@ -592,12 +592,12 @@ export class StarterDebugMenu extends ShadowlessElement {
         '*'
       );
       if (this.editor.host) {
-        toast(this.editor.host, 'Requested save operation.');
+        toast(this.editor.host, '数据上传中，请稍后。');
       }
     } catch (error) {
       console.error('Failed to request save:', error);
       if (this.editor.host) {
-        toast(this.editor.host, 'Failed to request save.');
+        toast(this.editor.host, '数据上传失败。');
       }
     }
   }
@@ -824,7 +824,7 @@ export class StarterDebugMenu extends ShadowlessElement {
       );
 
       if (this.editor.host) {
-        toast(this.editor.host, 'Document snapshot and DICOM studies saved successfully.');
+        toast(this.editor.host, '上传已完成。');
       }
     } catch (error) {
       console.error('Failed to save snapshot:', error);
@@ -1017,7 +1017,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         }
         if (this.editor.host) {
           this.editor.host.requestUpdate();
-          toast(this.editor.host, 'No document available in readonly mode.');
+          toast(this.editor.host, '数据加载完成（只读模式）。');
         }
         window.parent.postMessage(
           {
@@ -1028,7 +1028,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         );
         return;
       } else {
-        throw new Error(`Failed to get file URL for snapshot: ${fileFullPath}`);
+        throw new Error(`无法加载数据: ${fileFullPath}`);
       }
     } catch (error) {
       console.error('Failed to load snapshot:', error);
@@ -1040,7 +1040,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         '*'
       );
       if (this.editor.host) {
-        toast(this.editor.host, `Failed to load snapshot: ${error.message}`);
+        toast(this.editor.host, `数据加载失败: ${error.message}`);
       }
     }
   };
@@ -1288,12 +1288,12 @@ export class StarterDebugMenu extends ShadowlessElement {
         '*'
       );
       if (this.editor.host) {
-        toast(this.editor.host, 'Document loaded, notified parent.');
+        toast(this.editor.host, '数据加载中，请稍候。');
       }
     } catch (error) {
       console.error('Failed to send created message:', error);
       if (this.editor.host) {
-        toast(this.editor.host, 'Failed to notify parent.');
+        toast(this.editor.host, '数据加载失败。');
       }
     }
   }
