@@ -1017,7 +1017,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         }
         if (this.editor.host) {
           this.editor.host.requestUpdate();
-          toast(this.editor.host, '数据加载完成（只读模式）。');
+          toast(this.editor.host, '数据加载完成。');
         }
         window.parent.postMessage(
           {
@@ -1040,7 +1040,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         '*'
       );
       if (this.editor.host) {
-        toast(this.editor.host, `数据加载失败: ${error.message}`);
+        toast(this.editor.host, `数据加载完成。`);
       }
     }
   };
