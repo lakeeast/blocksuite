@@ -79,7 +79,7 @@
     "@blocksuite/std": "workspace:*",
     "@blocksuite/store": "workspace:*",
     "@blocksuite/sync": "workspace:*",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.2"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -266,6 +266,7 @@
     "./components/toggle-button": "./src/components/toggle-button.ts",
     "./components/toggle-switch": "./src/components/toggle-switch.ts",
     "./components/toolbar": "./src/components/toolbar.ts",
+    "./components/tooltip": "./src/components/tooltip.ts",
     "./components/view-dropdown-menu": "./src/components/view-dropdown-menu.ts",
     "./components/tooltip-content-with-shortcut": "./src/components/tooltip-content-with-shortcut.ts",
     "./components/resource": "./src/components/resource.ts",
@@ -295,10 +296,10 @@
     "!src/__tests__",
     "!dist/__tests__"
   ],
-  "version": "0.22.4",
+  "version": "0.26.3",
   "devDependencies": {
     "@vanilla-extract/vite-plugin": "^5.0.0",
-    "msw": "^2.8.4",
-    "vitest": "3.1.3"
+    "msw": "^2.12.4",
+    "vitest": "^4.0.18"
   }
 }

@@ -46,6 +46,22 @@ import {
   parseGroup,
   slashItemClassName,
 } from './utils.js';
+const isTextInputKey = (e: KeyboardEvent) => {
+  // Keys combined with modifiers are not considered text input
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+
+  // During IME composition, do not treat keydown as text input.
+  // Query updates are handled by input/composition hooks.
+  if (e.isComposing) return false;
+
+  // Only allow single-character keys as text input
+  if (e.key.length !== 1) return false;
+
+  // Keep existing behavior: space closes the slash menu
+  if (e.key === ' ') return false;
+
+  return true;
+};
 type InnerSlashMenuContext = SlashMenuContext & {
   onClickItem: (item: SlashMenuActionItem) => void;
   searching: boolean;
@@ -142,15 +158,13 @@ export class SlashMenu extends WithDisposable(LitElement) {
       // We search first and second layer
       if (this._filteredItems.length !== 0 && depth >= 1) break;
 
-      queue = queue
-        .map<typeof queue>(item => {
-          if (isSubMenuItem(item)) {
-            return item.subMenu;
-          } else {
-            return [];
-          }
-        })
-        .flat();
+      queue = queue.flatMap(item => {
+        if (isSubMenuItem(item)) {
+          return item.subMenu;
+        } else {
+          return [];
+        }
+      });
 
       depth++;
     }
@@ -230,10 +244,12 @@ export class SlashMenu extends WithDisposable(LitElement) {
         }
 
         if (key !== 'Backspace' && this._queryState === 'no_result') {
-          // if the following key is not the backspace key,
-          // the slash menu will be closed
-          this.abortController.abort();
-          return;
+          if (isTextInputKey(event)) {
+            // allow typing to change query; don't abort here
+          } else {
+            this.abortController.abort();
+            return;
+          }
         }
 
         if (key === 'Escape') {
@@ -378,7 +394,7 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
       this._closeSubMenu();
     });
 
-    const subMenuElement = createLitPortal({
+    const { portal: subMenuElement } = createLitPortal({
       shadowDom: false,
       template: html`<inner-slash-menu
         .context=${this.context}
