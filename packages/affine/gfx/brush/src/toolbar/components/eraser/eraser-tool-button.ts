@@ -61,7 +61,7 @@ export class EdgelessEraserToolButton extends EdgelessToolbarToolMixin(
       <edgeless-toolbar-button
         class="edgeless-eraser-button"
         .tooltip=${html`<affine-tooltip-content-with-shortcut
-          data-tip="${'Eraser'}"
+          data-tip="${'橡皮擦'}"
           data-shortcut="${'E'}"
         ></affine-tooltip-content-with-shortcut>`}
         .tooltipOffset=${4}

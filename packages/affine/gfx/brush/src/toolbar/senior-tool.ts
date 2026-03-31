@@ -3,7 +3,7 @@ import { html } from 'lit';
 
 export const penSeniorTool = SeniorToolExtension('pen', ({ block }) => {
   return {
-    name: 'Pen',
+    name: '铅笔',
     content: html`<div class="pen-and-eraser">
       <edgeless-pen-tool-button .edgeless=${block}></edgeless-pen-tool-button>
 

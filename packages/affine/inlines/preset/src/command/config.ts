@@ -4,6 +4,8 @@ import {
   ItalicIcon,
   LinkIcon,
   StrikethroughIcon,
+  SubscriptIcon,
+  SuperscriptIcon,
   UnderlineIcon,
 } from '@blocksuite/affine-components/icons';
 import { toggleLink } from '@blocksuite/affine-inline-link';
@@ -16,6 +18,8 @@ import {
   toggleCode,
   toggleItalic,
   toggleStrike,
+  toggleSubscript,
+  toggleSuperscript,
   toggleUnderline,
 } from './text-style.js';
 
@@ -32,7 +36,7 @@ export interface TextFormatConfig {
 export const textFormatConfigs: TextFormatConfig[] = [
   {
     id: 'bold',
-    name: 'Bold',
+    name: '粗体',
     icon: BoldIcon,
     hotkey: 'Mod-b',
     activeWhen: host => {
@@ -48,7 +52,7 @@ export const textFormatConfigs: TextFormatConfig[] = [
   },
   {
     id: 'italic',
-    name: 'Italic',
+    name: '斜体',
     icon: ItalicIcon,
     hotkey: 'Mod-i',
     activeWhen: host => {
@@ -64,7 +68,7 @@ export const textFormatConfigs: TextFormatConfig[] = [
   },
   {
     id: 'underline',
-    name: 'Underline',
+    name: '下划线',
     icon: UnderlineIcon,
     hotkey: 'Mod-u',
     activeWhen: host => {
@@ -80,7 +84,7 @@ export const textFormatConfigs: TextFormatConfig[] = [
   },
   {
     id: 'strike',
-    name: 'Strikethrough',
+    name: '中划线',
     icon: StrikethroughIcon,
     hotkey: 'Mod-shift-s',
     activeWhen: host => {
@@ -96,7 +100,7 @@ export const textFormatConfigs: TextFormatConfig[] = [
   },
   {
     id: 'code',
-    name: 'Code',
+    name: '代码',
     icon: CodeIcon,
     hotkey: 'Mod-e',
     activeWhen: host => {
@@ -111,8 +115,40 @@ export const textFormatConfigs: TextFormatConfig[] = [
     },
   },
   {
+    id: 'superscript',
+    name: '上标',
+    icon: SuperscriptIcon,
+    hotkey: 'Mod-.',
+    activeWhen: host => {
+      const [result] = host.std.command
+        .chain()
+        .pipe(isTextAttributeActive, { key: 'superscript' })
+        .run();
+      return result;
+    },
+    action: host => {
+      host.std.command.chain().pipe(toggleSuperscript).run();
+    },
+  },
+  {
+    id: 'subscript',
+    name: '下标',
+    icon: SubscriptIcon,
+    hotkey: 'Mod-=',
+    activeWhen: host => {
+      const [result] = host.std.command
+        .chain()
+        .pipe(isTextAttributeActive, { key: 'subscript' })
+        .run();
+      return result;
+    },
+    action: host => {
+      host.std.command.chain().pipe(toggleSubscript).run();
+    },
+  },
+  {
     id: 'link',
-    name: 'Link',
+    name: '链接',
     icon: LinkIcon,
     hotkey: 'Mod-k',
     activeWhen: host => {

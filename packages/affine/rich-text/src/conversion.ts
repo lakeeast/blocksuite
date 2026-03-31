@@ -33,7 +33,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:paragraph',
     type: 'text',
-    name: 'Text',
+    name: '正文',
     description: 'Start typing with plain text.',
     hotkey: [`Mod-Alt-0`, `Mod-Shift-0`],
     icon: TextIcon,
@@ -41,7 +41,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:paragraph',
     type: 'h1',
-    name: 'Heading 1',
+    name: '标题1',
     description: 'Headings in the largest font.',
     hotkey: [`Mod-Alt-1`, `Mod-Shift-1`],
     icon: Heading1Icon,
@@ -49,7 +49,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:paragraph',
     type: 'h2',
-    name: 'Heading 2',
+    name: '标题2',
     description: 'Headings in the 2nd font size.',
     hotkey: [`Mod-Alt-2`, `Mod-Shift-2`],
     icon: Heading2Icon,
@@ -57,7 +57,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:paragraph',
     type: 'h3',
-    name: 'Heading 3',
+    name: '标题3',
     description: 'Headings in the 3rd font size.',
     hotkey: [`Mod-Alt-3`, `Mod-Shift-3`],
     icon: Heading3Icon,
@@ -65,7 +65,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:paragraph',
     type: 'h4',
-    name: 'Heading 4',
+    name: '标题4',
     description: 'Headings in the 4th font size.',
     hotkey: [`Mod-Alt-4`, `Mod-Shift-4`],
     icon: Heading4Icon,
@@ -73,7 +73,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:paragraph',
     type: 'h5',
-    name: 'Heading 5',
+    name: '标题5',
     description: 'Headings in the 5th font size.',
     hotkey: [`Mod-Alt-5`, `Mod-Shift-5`],
     icon: Heading5Icon,
@@ -81,7 +81,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:paragraph',
     type: 'h6',
-    name: 'Heading 6',
+    name: '标题6',
     description: 'Headings in the 6th font size.',
     hotkey: [`Mod-Alt-6`, `Mod-Shift-6`],
     icon: Heading6Icon,
@@ -89,7 +89,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:list',
     type: 'bulleted',
-    name: 'Bulleted List',
+    name: '无序列表',
     description: 'Create a bulleted list.',
     hotkey: [`Mod-Alt-8`, `Mod-Shift-8`],
     icon: BulletedListIcon,
@@ -97,7 +97,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:list',
     type: 'numbered',
-    name: 'Numbered List',
+    name: '有序列表',
     description: 'Create a numbered list.',
     hotkey: [`Mod-Alt-9`, `Mod-Shift-9`],
     icon: NumberedListIcon,
@@ -105,7 +105,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:list',
     type: 'todo',
-    name: 'To-do List',
+    name: '代办事项',
     description: 'Add tasks to a to-do list.',
     searchAlias: ['checkbox'],
     hotkey: null,
@@ -114,7 +114,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:code',
     type: undefined,
-    name: 'Code Block',
+    name: '代码块',
     description: 'Code snippet with formatting.',
     hotkey: [`Mod-Alt-c`],
     icon: CodeBlockIcon,
@@ -122,7 +122,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:paragraph',
     type: 'quote',
-    name: 'Quote',
+    name: '引用',
     description: 'Add a blockquote for emphasis.',
     hotkey: null,
     icon: QuoteIcon,
@@ -130,7 +130,7 @@ export const textConversionConfigs: TextConversionConfig[] = [
   {
     flavour: 'affine:divider',
     type: 'divider',
-    name: 'Divider',
+    name: '分割线',
     description: 'Visually separate content.',
     hotkey: [`Mod-Alt-d`, `Mod-Shift-d`],
     icon: DividerIcon,

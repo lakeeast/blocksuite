@@ -17,25 +17,20 @@ import {
   AttachmentBlockStyles,
 } from '@blocksuite/affine-model';
 import {
-  BlockElementCommentManager,
   CitationProvider,
   DocModeProvider,
   FileSizeLimitProvider,
   TelemetryProvider,
 } from '@blocksuite/affine-shared/services';
-import {
-  formatSize,
-  openSingleFileWith,
-} from '@blocksuite/affine-shared/utils';
+import { formatSize } from '@blocksuite/affine-shared/utils';
 import {
   AttachmentIcon,
   ResetIcon,
   UpgradeIcon,
-  WarningIcon,
 } from '@blocksuite/icons/lit';
 import { BlockSelection } from '@blocksuite/std';
 import { nanoid, Slice } from '@blocksuite/store';
-import { batch, computed, signal } from '@preact/signals-core';
+import { computed, signal } from '@preact/signals-core';
 import { html, type TemplateResult } from 'lit';
 import { choose } from 'lit/directives/choose.js';
 import { type ClassInfo, classMap } from 'lit/directives/class-map.js';
@@ -46,7 +41,7 @@ import { filter } from 'rxjs/operators';
 
 import { AttachmentEmbedProvider } from './embed';
 import { styles } from './styles';
-import { downloadAttachmentBlob, getFileType, refreshData } from './utils';
+import { downloadAttachmentBlob, refreshData } from './utils';
 
 type AttachmentResolvedStateInfo = ResolvedStateInfo & {
   kind?: TemplateResult;
@@ -93,14 +88,6 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
     return this.citationService.isCitationModel(this.model);
   }
 
-  get isCommentHighlighted() {
-    return (
-      this.std
-        .getOptional(BlockElementCommentManager)
-        ?.isBlockCommentHighlighted(this.model) ?? false
-    );
-  }
-
   convertTo = () => {
     return this.std
       .get(AttachmentEmbedProvider)
@@ -132,60 +119,30 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
     window.open(blobUrl, '_blank');
   };
 
-  // Refreshes data.
   refreshData = () => {
     refreshData(this).catch(console.error);
   };
 
   private readonly _refreshKey$ = signal<string | null>(null);
 
-  // Refreshes the embed component.
-  reload = () => {
-    batch(() => {
-      if (this.model.props.embed$.value) {
-        this._refreshKey$.value = nanoid();
-        return;
-      }
+reload = () => {
+  const isEmbedded = this.model.props.embed;
+  const hasBlobUrl = !!this.resourceController.blobUrl$.value;
 
-      this.refreshData();
-    });
-  };
+  if (isEmbedded && hasBlobUrl) {
+    // For embedded attachments with a loaded blob (likely local or cached), update refreshKey
+    this._refreshKey$.value = nanoid();
+    console.log('Embedded reload with blobUrl, updated refreshKey:', this._refreshKey$.value);
+    return;
+  }
 
-  // Replaces the current attachment.
-  replace = async () => {
-    const state = this.resourceController.state$.peek();
-    if (state.uploading) return;
-
-    const file = await openSingleFileWith();
-    if (!file) return;
-
-    const sourceId = await this.std.store.blobSync.set(file);
-    const type = await getFileType(file);
-    const { name, size } = file;
-
-    let embed = this.model.props.embed$.value ?? false;
-
-    this.std.store.captureSync();
-    this.std.store.transact(() => {
-      this.std.store.updateBlock(this.blockId, {
-        name,
-        size,
-        type,
-        sourceId,
-        embed: false,
-      });
-
-      const provider = this.std.get(AttachmentEmbedProvider);
-      embed &&= provider.embedded(this.model);
-
-      if (embed) {
-        provider.convertTo(this.model);
-      }
-
-      // Reloads
-      this.reload();
-    });
-  };
+  // For non-embedded or cloud attachments (no blobUrl), perform full refresh
+  this.resourceController.updateState({ downloading: true });
+  this.refreshData();
+  this.resourceController.updateState({ downloading: false, state: 'none' });
+  this._refreshKey$.value = nanoid();
+  console.log('Full reload, updated refreshKey:', this._refreshKey$.value);
+};
 
   private _selectBlock() {
     const selectionManager = this.host.selection;
@@ -196,7 +153,6 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
   }
 
   private readonly _trackCitationDeleteEvent = () => {
-    // Check citation delete event
     this._disposables.add(
       this.std.store.slots.blockUpdated
         .pipe(
@@ -251,13 +207,18 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
   }
 
   override firstUpdated() {
-    // lazy bindings
     this.disposables.addFromEvent(this, 'click', this.onClick);
   }
 
   protected onClick(event: MouseEvent) {
-    // the peek view need handle shift + click
     if (event.defaultPrevented) return;
+
+    // Don't intercept clicks on embedded content (like DICOM viewers)
+    // to allow proper mouse interactions within iframes
+    const target = event.target as Element;
+    if (target.closest('.affine-attachment-embed-container')) {
+      return; // Let the embedded content handle the event
+    }
 
     event.stopPropagation();
 
@@ -280,21 +241,19 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
             event.stopPropagation();
             onOverFileSize?.();
 
-            {
-              const mode =
-                this.std.get(DocModeProvider).getEditorMode() ?? 'page';
-              const segment = mode === 'page' ? 'doc' : 'whiteboard';
-              this.std
-                .getOptional(TelemetryProvider)
-                ?.track('AttachmentUpgradedEvent', {
-                  segment,
-                  page: `${segment} editor`,
-                  module: 'attachment',
-                  control: 'upgrade',
-                  category: 'card',
-                  type: this.model.props.name.split('.').pop() ?? '',
-                });
-            }
+            const mode =
+              this.std.get(DocModeProvider).getEditorMode() ?? 'page';
+            const segment = mode === 'page' ? 'doc' : 'whiteboard';
+            this.std
+              .getOptional(TelemetryProvider)
+              ?.track('AttachmentUpgradedEvent', {
+                segment,
+                page: `${segment} editor`,
+                module: 'attachment',
+                control: 'upgrade',
+                category: 'card',
+                type: this.model.props.name.split('.').pop() ?? '',
+              });
           }}
         >
           ${UpgradeIcon()} Upgrade
@@ -304,43 +263,7 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
   };
 
   protected renderNormalButton = (needUpload: boolean) => {
-    const label = needUpload ? 'retry' : 'reload';
-    const run = async () => {
-      if (needUpload) {
-        await this.resourceController.upload();
-        return;
-      }
-
-      this.refreshData();
-    };
-
-    return html`
-      <button
-        class="affine-attachment-content-button"
-        @click=${(event: MouseEvent) => {
-          event.stopPropagation();
-          run().catch(console.error);
-
-          {
-            const mode =
-              this.std.get(DocModeProvider).getEditorMode() ?? 'page';
-            const segment = mode === 'page' ? 'doc' : 'whiteboard';
-            this.std
-              .getOptional(TelemetryProvider)
-              ?.track('AttachmentReloadedEvent', {
-                segment,
-                page: `${segment} editor`,
-                module: 'attachment',
-                control: label,
-                category: 'card',
-                type: this.filetype,
-              });
-          }
-        }}
-      >
-        ${ResetIcon()} ${label}
-      </button>
-    `;
+    return null;
   };
 
   protected renderWithHorizontal(
@@ -362,16 +285,6 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
             <div class="affine-attachment-content-title-text truncate">
               ${title}
             </div>
-          </div>
-
-          <div class="affine-attachment-content-description">
-            <div class="affine-attachment-content-info truncate">
-              ${description}
-            </div>
-            ${choose(state, [
-              ['error', () => this.renderNormalButton(needUpload)],
-              ['error:oversize', this.renderUpgradeButton],
-            ])}
           </div>
         </div>
 
@@ -406,13 +319,7 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
           </div>
         </div>
 
-        <div class="affine-attachment-banner">
-          ${kind}
-          ${choose(state, [
-            ['error', () => this.renderNormalButton(needUpload)],
-            ['error:oversize', this.renderUpgradeButton],
-          ])}
-        </div>
+        <div class="affine-attachment-banner">${kind}</div>
       </div>
     `;
   }
@@ -424,7 +331,7 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
 
     const resolvedState = this.resourceController.resolveStateWith({
       loadingIcon: LoadingIcon(),
-      errorIcon: WarningIcon(),
+      errorIcon: null, // Suppress warning symbol
       icon: AttachmentIcon(),
       title: name,
       description: formatSize(size),
@@ -441,7 +348,6 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
       'affine-attachment-card': true,
       [cardStyle]: true,
       loading: resolvedState.loading,
-      error: resolvedState.error,
     };
 
     return when(
@@ -453,40 +359,30 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
 
   protected renderEmbedView = () => {
     const { model, blobUrl } = this;
-    if (!model.props.embed$.value || !blobUrl) return null;
+    if (!model.props.embed || !blobUrl) {
+      console.log('renderEmbedView: Skipping due to missing embed or blobUrl', {
+        embed: model.props.embed,
+        blobUrl,
+        name: model.props.name,
+      });
+      return null;
+    }
 
     const { std, _maxFileSize } = this;
     const provider = std.get(AttachmentEmbedProvider);
 
     const render = provider.getRender(model, _maxFileSize);
-    if (!render) return null;
-
-    const enabled = provider.shouldShowStatus(model);
+    if (!render) {
+      console.log('renderEmbedView: No render function available', {
+        name: model.props.name,
+      });
+      return null;
+    }
 
     return html`
       <div class="affine-attachment-embed-container">
         ${guard([this._refreshKey$.value], () => render(model, blobUrl))}
       </div>
-      ${when(enabled, () => {
-        const resolvedState = this.resolvedState$.value;
-        if (resolvedState.state !== 'error') return null;
-        // It should be an error messge.
-        const message = resolvedState.description;
-        if (!message) return null;
-
-        const needUpload = resolvedState.needUpload;
-        const action = () =>
-          needUpload ? this.resourceController.upload() : this.reload();
-
-        return html`
-          <affine-resource-status
-            class="affine-attachment-embed-status"
-            .message=${message}
-            .needUpload=${needUpload}
-            .action=${action}
-          ></affine-resource-status>
-        `;
-      })}
     `;
   };
 
@@ -503,12 +399,12 @@ export class AttachmentBlockComponent extends CaptionedBlockComponent<Attachment
   };
 
   override renderBlock() {
+    console.log('renderBlock called, flavour:', this.model.flavour, 'state:', this.resolvedState$.value.state);
     return html`
       <div
         class=${classMap({
           'affine-attachment-container': true,
           focused: this.selected$.value,
-          'comment-highlighted': this.isCommentHighlighted,
         })}
         style=${this.containerStyleMap}
       >

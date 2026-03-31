@@ -6,6 +6,8 @@ export const baseTextAttributes = z.object({
   underline: z.literal(true).optional().nullable().catch(undefined),
   strike: z.literal(true).optional().nullable().catch(undefined),
   code: z.literal(true).optional().nullable().catch(undefined),
+  superscript: z.literal(true).optional().nullable().catch(undefined),
+  subscript: z.literal(true).optional().nullable().catch(undefined),
   link: z.string().optional().nullable().catch(undefined),
 });
 

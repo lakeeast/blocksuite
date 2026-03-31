@@ -17,6 +17,7 @@ import {
   isFuzzyMatch,
   substringMatchScore,
 } from '@blocksuite/affine-shared/utils';
+import { IS_ANDROID, IS_MOBILE } from '@blocksuite/global/env';
 import { WithDisposable } from '@blocksuite/global/lit';
 import { ArrowDownSmallIcon } from '@blocksuite/icons/lit';
 import { autoPlacement, offset } from '@floating-ui/dom';
@@ -79,6 +80,9 @@ export class SlashMenu extends WithDisposable(LitElement) {
   }
 
   private readonly _handleClickItem = (item: SlashMenuActionItem) => {
+    // Prevent item selection if we just finished scrolling
+    if (this._isScrolling) return;
+    
     // Need to remove the search string
     // We must to do clean the slash string before we do the action
     // Otherwise, the action may change the model and cause the slash string to be changed
@@ -105,6 +109,106 @@ export class SlashMenu extends WithDisposable(LitElement) {
       .catch(console.error);
   };
 
+
+
+  private _handleOverlayClick = (event: MouseEvent) => {
+    const target = event.target as Element;
+    const debugInfo = `Overlay Click:
+Type: ${event.type}
+Pos: ${event.clientX},${event.clientY}
+Target: ${target.tagName}
+Class: ${target.className || 'none'}
+ID: ${target.id || 'none'}
+Cooldown: ${slashMenuCooldown}`;
+    
+    this._createDebugDisplay(debugInfo);
+
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Set cooldown flag to prevent immediate re-triggering
+    setSlashMenuCooldown(true);
+    
+    setTimeout(() => {
+      this.abortController.abort();
+      // Reset cooldown after a short delay
+      setTimeout(() => {
+        setSlashMenuCooldown(false);
+      }, 200);
+    }, 50);
+  };
+
+  // Overlay touch tracking (separate from menu item touch tracking)
+  private _overlayTouchStartPos: { x: number; y: number } | null = null;
+  private _overlayHasMoved = false;
+
+  private readonly _handleOverlayTouch = (event: TouchEvent) => {
+    const eventType = event.type;
+    
+    if (eventType === 'touchstart') {
+      const touch = event.touches[0];
+      if (touch) {
+        this._overlayTouchStartPos = { x: touch.clientX, y: touch.clientY };
+        this._overlayHasMoved = false;
+        
+        // Check if touch started within menu bounds
+        const innerMenu = this.querySelector('inner-slash-menu');
+        const menuElement = innerMenu?.shadowRoot?.querySelector('.slash-menu') as HTMLElement;
+        
+        if (menuElement) {
+          const rect = menuElement.getBoundingClientRect();
+          const isWithinMenuBounds = touch.clientX >= rect.left && touch.clientX <= rect.right && 
+                                    touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+          
+          if (IS_MOBILE) {
+            console.log('[SlashMenu] Overlay touch start:', {
+              withinBounds: isWithinMenuBounds,
+              pos: { x: touch.clientX, y: touch.clientY },
+              menuBounds: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
+            });
+          }
+          
+          // If touch starts within menu, we'll ignore the dismissal
+          if (isWithinMenuBounds) {
+            this._overlayHasMoved = true; // Mark as "moved" to prevent dismissal
+          }
+        }
+      }
+    } else if (eventType === 'touchmove') {
+      if (this._overlayTouchStartPos && event.touches[0]) {
+        const touch = event.touches[0];
+        const deltaX = Math.abs(touch.clientX - this._overlayTouchStartPos.x);
+        const deltaY = Math.abs(touch.clientY - this._overlayTouchStartPos.y);
+        
+        // Same threshold as menu items - 5px
+        if (deltaX > 5 || deltaY > 5) {
+          this._overlayHasMoved = true;
+          
+          if (IS_MOBILE) {
+            console.log('[SlashMenu] Overlay movement detected - scroll gesture', { deltaX, deltaY });
+          }
+        }
+      }
+    } else if (eventType === 'touchend') {
+      // Only dismiss if it was a clean tap outside the menu (no movement)
+      if (!this._overlayHasMoved && this._overlayTouchStartPos) {
+        if (IS_MOBILE) {
+          console.log('[SlashMenu] Overlay touch end - dismissing (tap detected outside menu)');
+        }
+        console.log('[SlashMenu] Touch end - aborting:', Date.now());
+        this.abortController.abort();
+      } else {
+        if (IS_MOBILE) {
+          console.log('[SlashMenu] Overlay touch end - ignoring (movement or within menu detected)');
+        }
+      }
+      
+      // Reset tracking
+      this._overlayTouchStartPos = null;
+      this._overlayHasMoved = false;
+    }
+  };
+
   private readonly _initItemPathMap = () => {
     const traverse = (item: SlashMenuItem, path: number[]) => {
       this._itemPathMap.set(item, [...path]);
@@ -124,7 +228,13 @@ export class SlashMenu extends WithDisposable(LitElement) {
 
   private _queryState: 'off' | 'on' | 'no_result' = 'off';
 
-  private readonly _startRange = this.inlineEditor.getInlineRange();
+  private readonly _startRange = (() => {
+    const range = this.inlineEditor.getInlineRange();
+    if (IS_MOBILE) {
+      console.log('[SlashMenu] _startRange initialized:', range);
+    }
+    return range;
+  })();
 
   private readonly _updateFilteredItems = () => {
     const query = this._query;
@@ -134,6 +244,17 @@ export class SlashMenu extends WithDisposable(LitElement) {
     }
     this._filteredItems = [];
     const searchStr = query.toLowerCase();
+    
+    // Debug logging for mobile devices
+    if (IS_MOBILE) {
+      console.log('[SlashMenu] _updateFilteredItems called:', {
+        query,
+        searchStr,
+        queryLength: searchStr.length,
+        items: this.items.map(item => item.name)
+      });
+    }
+    
     if (searchStr === '' || searchStr.endsWith(' ')) {
       this._queryState = searchStr === '' ? 'off' : 'no_result';
       this._innerSlashMenuContext.searching = false;
@@ -181,7 +302,19 @@ export class SlashMenu extends WithDisposable(LitElement) {
   };
 
   private get _query() {
-    return getTextContentFromInlineRange(this.inlineEditor, this._startRange);
+    const query = getTextContentFromInlineRange(this.inlineEditor, this._startRange);
+    
+    // Debug logging for mobile devices
+    if (IS_MOBILE) {
+      console.log('[SlashMenu] _query calculated:', {
+        query,
+        startRange: this._startRange,
+        currentRange: this.inlineEditor.getInlineRange(),
+        inlineEditor: !!this.inlineEditor
+      });
+    }
+    
+    return query;
   }
 
   get host() {
@@ -193,7 +326,27 @@ export class SlashMenu extends WithDisposable(LitElement) {
     private readonly abortController = new AbortController()
   ) {
     super();
+    console.log('[SlashMenu] Created new slash menu instance:', Date.now());
   }
+
+  private static _lastDismissTime = 0;
+  
+
+
+  private _globalClickHandler: (event: MouseEvent) => void = (event) => {
+    const target = event.target as Element;
+    // Check if the click is outside the slash menu
+    if (!target.closest('slash-menu') && !target.closest('inner-slash-menu')) {
+      // Set cooldown to prevent immediate re-opening
+      SlashMenu._lastDismissTime = Date.now();
+      
+
+      
+      this.abortController.abort();
+    }
+  };
+
+
 
   override connectedCallback() {
     super.connectedCallback();
@@ -205,6 +358,14 @@ export class SlashMenu extends WithDisposable(LitElement) {
     };
 
     this._initItemPathMap();
+    
+    // Add global click listener for outside clicks
+    setTimeout(() => {
+      document.addEventListener('click', this._globalClickHandler, true);
+    }, 100);
+    
+
+
 
     this._disposables.addFromEvent(this, 'mousedown', e => {
       // Prevent input from losing focus
@@ -259,6 +420,14 @@ export class SlashMenu extends WithDisposable(LitElement) {
           return;
         }
 
+        // On mobile, also close with backspace when query is empty
+        if (IS_MOBILE && key === 'Backspace' && !this._query) {
+          this.abortController.abort();
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+
         if (key === 'ArrowRight' || key === 'ArrowLeft') {
           return;
         }
@@ -266,6 +435,10 @@ export class SlashMenu extends WithDisposable(LitElement) {
         next();
       },
       onInput: isComposition => {
+        if (IS_MOBILE) {
+          console.log('[SlashMenu] createKeydownObserver onInput triggered:', { isComposition });
+        }
+        
         if (isComposition) {
           this._updateFilteredItems();
         } else {
@@ -305,6 +478,9 @@ export class SlashMenu extends WithDisposable(LitElement) {
       type: this.context.model.flavour.split(':').pop(),
       module: 'slash menu',
     });
+
+    // Add Android-specific input monitoring for filtering
+    this._setupMobileInputMonitoring();
   }
 
   protected override willUpdate() {
@@ -325,6 +501,98 @@ export class SlashMenu extends WithDisposable(LitElement) {
     }
   }
 
+  private _setupMobileInputMonitoring() {
+    // Add additional input monitoring for mobile devices where isComposing blocks normal input detection
+    if (!IS_MOBILE) return;
+
+    const inlineEditor = this.inlineEditor;
+    if (!inlineEditor || !inlineEditor.eventSource) return;
+
+    // Listen for input events that bypass the composition blocking
+    const handleInput = (event: Event) => {
+      console.log('[SlashMenu] Mobile input detected:', {
+        type: event.type,
+        target: event.target,
+        query: this._query,
+        startRange: this._startRange,
+        currentRange: inlineEditor.getInlineRange()
+      });
+      
+      // Update filtered items when input changes
+      this._updateFilteredItems();
+    };
+
+    // Add multiple input event listeners for mobile devices
+    inlineEditor.eventSource.addEventListener('input', handleInput, { passive: true });
+    inlineEditor.eventSource.addEventListener('compositionupdate', handleInput, { passive: true });
+    inlineEditor.eventSource.addEventListener('textInput', handleInput, { passive: true });
+    
+    // Android-specific: Add more aggressive event listeners
+    if (IS_ANDROID) {
+      console.log('[SlashMenu] Setting up Android-specific monitoring');
+      
+      // Listen for ANY change in the editor content
+      const androidFallback = () => {
+        console.log('[SlashMenu] Android fallback triggered');
+        this._updateFilteredItems();
+      };
+      
+      // More Android-specific events
+      inlineEditor.eventSource.addEventListener('beforeinput', androidFallback, { passive: true });
+      inlineEditor.eventSource.addEventListener('compositionstart', androidFallback, { passive: true });
+      inlineEditor.eventSource.addEventListener('compositionend', androidFallback, { passive: true });
+      inlineEditor.eventSource.addEventListener('keyup', androidFallback, { passive: true });
+      
+      // Use MutationObserver for Android as last resort
+      const observer = new MutationObserver(() => {
+        console.log('[SlashMenu] Android MutationObserver triggered');
+        setTimeout(() => this._updateFilteredItems(), 50);
+      });
+      
+      observer.observe(inlineEditor.eventSource, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+      
+      // Also poll periodically on Android
+      const pollInterval = setInterval(() => {
+        this._updateFilteredItems();
+      }, 300);
+      
+      // Clean up Android-specific listeners
+      this.abortController.signal.addEventListener('abort', () => {
+        inlineEditor.eventSource?.removeEventListener('beforeinput', androidFallback);
+        inlineEditor.eventSource?.removeEventListener('compositionstart', androidFallback);
+        inlineEditor.eventSource?.removeEventListener('compositionend', androidFallback);
+        inlineEditor.eventSource?.removeEventListener('keyup', androidFallback);
+        observer.disconnect();
+        clearInterval(pollInterval);
+      });
+    }
+    
+    // Also try listening on the document level as fallback
+    const documentInputHandler = (event: Event) => {
+      // Only handle if the target is within our editor
+      if (event.target && inlineEditor.eventSource?.contains(event.target as Node)) {
+        console.log('[SlashMenu] Document level input:', event.type);
+        setTimeout(() => this._updateFilteredItems(), 10);
+      }
+    };
+    
+    document.addEventListener('input', documentInputHandler, { passive: true });
+    document.addEventListener('compositionupdate', documentInputHandler, { passive: true });
+    
+    // Clean up when aborted
+    this.abortController.signal.addEventListener('abort', () => {
+      inlineEditor.eventSource?.removeEventListener('input', handleInput);
+      inlineEditor.eventSource?.removeEventListener('compositionupdate', handleInput);
+      inlineEditor.eventSource?.removeEventListener('textInput', handleInput);
+      document.removeEventListener('input', documentInputHandler);
+      document.removeEventListener('compositionupdate', documentInputHandler);
+    });
+  }
+
   override render() {
     const slashMenuStyles = this._position
       ? {
@@ -335,12 +603,7 @@ export class SlashMenu extends WithDisposable(LitElement) {
           visibility: 'hidden',
         };
 
-    return html`${this._queryState !== 'no_result'
-        ? html` <div
-            class="overlay-mask"
-            @click="${() => this.abortController.abort()}"
-          ></div>`
-        : nothing}
+    return html`
       <inner-slash-menu
         .context=${this._innerSlashMenuContext}
         .menu=${this._queryState === 'off' ? this.items : this._filteredItems}
@@ -378,6 +641,58 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
   };
 
   private _currentSubMenu: SlashMenuSubMenu | null = null;
+
+  private _isScrolling = false;
+  private _scrollTimeout: number | null = null;
+  private _touchStartY: number | null = null;
+  private _touchMoved = false;
+
+  private _handleTouchStart = (event: TouchEvent) => {
+    this._touchStartY = event.touches[0]?.clientY ?? null;
+    this._touchMoved = false;
+  };
+
+  private _handleTouchMove = (event: TouchEvent) => {
+    if (this._touchStartY !== null) {
+      const currentY = event.touches[0]?.clientY ?? 0;
+      const deltaY = Math.abs(currentY - this._touchStartY);
+      if (deltaY > 5) { // 5px threshold
+        this._touchMoved = true;
+      }
+    }
+  };
+
+  private _handleTouchEnd = () => {
+    if (this._touchMoved) {
+      this._isScrolling = true;
+      if (this._scrollTimeout) {
+        clearTimeout(this._scrollTimeout);
+      }
+      this._scrollTimeout = window.setTimeout(() => {
+        this._isScrolling = false;
+      }, 300); // Longer timeout for touch
+    }
+    this._touchStartY = null;
+    this._touchMoved = false;
+  };
+
+  private _globalClickHandler = (event: Event) => {
+    // Only handle actual click events, not touch or other events
+    if (event.type !== 'click') return;
+    
+    // Don't dismiss if we're currently scrolling
+    if (this._isScrolling) return;
+    
+    const target = event.target as Element;
+    if (!this.contains(target)) {
+      this.abortController.abort();
+      SlashMenu._lastDismissTime = Date.now();
+    }
+  };
+
+
+
+
 
   private readonly _openSubMenu = (item: SlashMenuSubMenu) => {
     if (item === this._currentSubMenu) return;
@@ -438,7 +753,12 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         this._activeItem = item;
         this._closeSubMenu();
       }}
-      @click=${() => this.context.onClickItem(item)}
+      @click=${() => {
+        // Prevent item selection if we just finished scrolling
+        if (this._isScrolling) return;
+        this.context.onClickItem(item);
+      }}
+
     >
       ${icon && html`<div class="slash-menu-item-icon">${icon}</div>`}
       ${tooltip &&
@@ -493,11 +813,13 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         this._activeItem = item;
         this._openSubMenu(item);
       }}
-      @touchstart=${() => {
-        isSubMenuItem(item) &&
-          (this._currentSubMenu === item
-            ? this._closeSubMenu()
-            : this._openSubMenu(item));
+      @click=${() => {
+        this._activeItem = item;
+        if (this._currentSubMenu === item) {
+          this._closeSubMenu();
+        } else {
+          this._openSubMenu(item);
+        }
       }}
     >
       ${icon && html`<div class="slash-menu-item-icon">${icon}</div>`}
@@ -536,6 +858,29 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
         event.preventDefault();
       }
     });
+
+    // Track scrolling to prevent dismissal during scroll
+    this.addEventListener('scroll', () => {
+      this._isScrolling = true;
+      if (this._scrollTimeout) {
+        clearTimeout(this._scrollTimeout);
+      }
+      this._scrollTimeout = window.setTimeout(() => {
+        this._isScrolling = false;
+      }, 150);
+    });
+
+    // Add touch event listeners to detect scrolling vs tapping
+    this.addEventListener('touchstart', this._handleTouchStart, { passive: true });
+    this.addEventListener('touchmove', this._handleTouchMove, { passive: true });
+    this.addEventListener('touchend', this._handleTouchEnd, { passive: true });
+
+    // Add a small delay to ensure the menu is rendered before setting up handlers
+    setTimeout(() => {
+      document.addEventListener('click', this._globalClickHandler, true);
+    }, 0);
+
+
 
     const inlineEditor = getInlineEditorByModel(
       this.context.std,
@@ -631,8 +976,14 @@ export class InnerSlashMenu extends WithDisposable(LitElement) {
     );
   }
 
+
+
   override disconnectedCallback() {
     this.abortController.abort();
+    document.removeEventListener('click', this._globalClickHandler, true);
+    if (this._scrollTimeout) {
+      clearTimeout(this._scrollTimeout);
+    }
   }
 
   override render() {

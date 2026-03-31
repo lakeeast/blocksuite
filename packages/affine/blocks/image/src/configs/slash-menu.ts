@@ -8,7 +8,7 @@ import { PhotoTooltip } from './tooltips';
 export const imageSlashMenuConfig: SlashMenuConfig = {
   items: [
     {
-      name: 'Image',
+      name: '图片',
       description: 'Insert an image.',
       icon: ImageIcon(),
       tooltip: {

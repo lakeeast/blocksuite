@@ -663,7 +663,7 @@ export class EdgelessToolbarWidget extends WidgetComponent<RootBlockModel> {
     if (this.store.readonly && type !== 'frameNavigator') {
       return nothing;
     }
-
+    
     return html`
       <div
         class="edgeless-toolbar-wrapper"

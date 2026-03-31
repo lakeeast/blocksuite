@@ -187,7 +187,7 @@ export class EdgelessNoteSeniorButton extends EdgelessToolbarToolMixin(
       .tooltip=${this.popper
         ? ''
         : html`<affine-tooltip-content-with-shortcut
-            data-tip="${'Note'}"
+            data-tip="${'笔记'}"
             data-shortcut="${'N'}"
           ></affine-tooltip-content-with-shortcut>`}
       .tooltipOffset=${5}

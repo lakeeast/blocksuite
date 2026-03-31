@@ -32,6 +32,8 @@ import {
   toggleCode,
   toggleItalic,
   toggleStrike,
+  toggleSubscript,
+  toggleSuperscript,
   toggleUnderline,
 } from '@blocksuite/affine-inline-preset';
 import type { FrameBlockModel } from '@blocksuite/affine-model';
@@ -110,6 +112,53 @@ import { GfxControllerIdentifier } from '@blocksuite/std/gfx';
 import { computed } from '@preact/signals-core';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import type { TemplateResult } from 'lit';
+import { html } from 'lit';
+
+const SuperscriptToolIcon = html`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+>
+  <path
+    d="M5 19L10 11M10 11L5 5M10 11L15 19M10 11L15 5"
+    stroke="currentColor"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M17 8H19.5C19.5 8 20.5 8 20.5 7C20.5 6 19.5 6 19.5 6C19.5 6 18.5 6 18.5 5C18.5 4 19.5 4 19.5 4H17"
+    stroke="currentColor"
+    stroke-width="1.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>`;
+
+const SubscriptToolIcon = html`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+>
+  <path
+    d="M5 19L10 11M10 11L5 5M10 11L15 19M10 11L15 5"
+    stroke="currentColor"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M17 20H19.5C19.5 20 20.5 20 20.5 19C20.5 18 19.5 18 19.5 18C19.5 18 18.5 18 18.5 17C18.5 16 19.5 16 19.5 16H17"
+    stroke="currentColor"
+    stroke-width="1.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>`;
 
 import {
   FigmaDuotoneIcon,
@@ -924,6 +973,28 @@ const textStyleToolItems: KeyboardToolbarItem[] = [
     },
     action: ({ std }) => {
       std.command.exec(toggleCode);
+    },
+  },
+  {
+    name: 'Superscript',
+    icon: SuperscriptToolIcon,
+    background: ({ std }) => {
+      const [_, { textAttributes }] = std.command.exec(getTextAttributes);
+      return textAttributes?.superscript ? '#00000012' : '';
+    },
+    action: ({ std }) => {
+      std.command.exec(toggleSuperscript);
+    },
+  },
+  {
+    name: 'Subscript',
+    icon: SubscriptToolIcon,
+    background: ({ std }) => {
+      const [_, { textAttributes }] = std.command.exec(getTextAttributes);
+      return textAttributes?.subscript ? '#00000012' : '';
+    },
+    action: ({ std }) => {
+      std.command.exec(toggleSubscript);
     },
   },
   {

@@ -19,6 +19,7 @@ export type EmbedCardStyle =
   | 'html'
   | 'syncedDoc'
   | 'pdf'
+  | 'dicom'
   | 'citation';
 
 export const LinkPreviewDataSchema = z.object({

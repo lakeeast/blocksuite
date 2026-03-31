@@ -12,7 +12,7 @@ import { LatexTooltip } from './tooltips';
 export const latexSlashMenuConfig: SlashMenuConfig = {
   items: [
     {
-      name: 'Inline equation',
+      name: '行内公式',
       group: '0_Basic@8',
       description: 'Create a inline equation.',
       icon: TeXIcon(),
@@ -34,7 +34,7 @@ export const latexSlashMenuConfig: SlashMenuConfig = {
       },
     },
     {
-      name: 'Equation',
+      name: '公式块',
       description: 'Create a equation block.',
       icon: TeXIcon(),
       tooltip: {

@@ -70,16 +70,44 @@ export function buildSlashMenuItems(
 }
 
 export function mergeSlashMenuConfigs(
-  configs: Map<string, SlashMenuConfig>
+  configs: Map<string, SlashMenuConfig> | any
 ): SlashMenuConfig {
+  // Handle cases where configs might not be a proper Map (iPad/Safari compatibility)
+  if (typeof configs !== 'object' || configs === null) {
+    console.warn('[SlashMenu] configs is not an object:', configs);
+    return { items: () => [], disableWhen: () => false };
+  }
+  
+  let configsArray: SlashMenuConfig[];
+  
+  // Try multiple ways to extract values from the configs object
+  if (configs && typeof configs.values === 'function') {
+    try {
+      configsArray = Array.from(configs.values());
+    } catch (e) {
+      console.warn('[SlashMenu] Error calling configs.values():', e);
+      configsArray = [];
+    }
+  } else if (Array.isArray(configs)) {
+    configsArray = configs;
+  } else if (configs && typeof configs === 'object') {
+    // Fallback: try to extract values manually if it's a Map-like object
+    configsArray = Object.values(configs);
+  } else {
+    configsArray = [];
+  }
+    
+  if (configsArray.length === 0) {
+    console.warn('[SlashMenu] No configs found, configs type:', typeof configs, 'has values method:', !!configs.values, 'constructor:', configs.constructor?.name);
+  }
+    
   return {
     items: ctx =>
-      Array.from(configs.values()).flatMap(({ items }) =>
+      configsArray.flatMap(({ items }) =>
         typeof items === 'function' ? items(ctx) : items
       ),
     disableWhen: ctx =>
-      configs
-        .values()
+      configsArray
         .map(({ disableWhen }) => disableWhen?.(ctx) ?? false)
         .some(Boolean),
   };

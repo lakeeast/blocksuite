@@ -52,7 +52,7 @@ const surfaceRefSlashMenuConfig: SlashMenuConfig = {
     let index = 0;
 
     const insertBlankFrameItem: SlashMenuItem = {
-      name: 'Frame',
+      name: '方框',
       description: 'Insert a blank frame',
       icon: FrameIcon(),
       tooltip: {
@@ -68,7 +68,7 @@ const surfaceRefSlashMenuConfig: SlashMenuConfig = {
     };
 
     const insertMindMapItem: SlashMenuItem = {
-      name: 'Mind Map',
+      name: '思维导图',
       description: 'Insert a mind map',
       icon: MindmapIcon(),
       tooltip: {

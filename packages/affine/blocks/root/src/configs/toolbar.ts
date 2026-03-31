@@ -111,7 +111,7 @@ const conversionsActionGroup = {
           .button=${html`
             <editor-icon-button
               aria-label="Conversions"
-              .tooltip="${'Turn into'}"
+              .tooltip="${'改变字体'}"
             >
               ${conversion.icon} ${EditorChevronDown}
             </editor-icon-button>
@@ -361,7 +361,7 @@ export const builtinToolbarConfig = {
     inlineTextActionGroup,
     highlightActionGroup,
     turnIntoDatabase,
-    turnIntoLinkedDoc,
+    //turnIntoLinkedDoc,
     {
       id: 'g.comment',
       ...blockCommentToolbarButton,
@@ -372,7 +372,7 @@ export const builtinToolbarConfig = {
       actions: [
         {
           id: 'copy',
-          label: 'Copy',
+          label: '拷贝',
           icon: CopyIcon(),
           run({ chain, host }) {
             const [ok] = chain
@@ -388,7 +388,7 @@ export const builtinToolbarConfig = {
         },
         {
           id: 'duplicate',
-          label: 'Duplicate',
+          label: '复制',
           icon: DuplicateIcon(),
           run({ chain, store, selection }) {
             store.captureSync();
@@ -433,7 +433,7 @@ export const builtinToolbarConfig = {
       actions: [
         {
           id: 'delete',
-          label: 'Delete',
+          label: '删除',
           icon: DeleteIcon(),
           variant: 'destructive',
           run({ chain }) {

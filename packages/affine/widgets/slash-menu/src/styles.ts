@@ -4,16 +4,6 @@ import { baseTheme } from '@toeverything/theme';
 import { css, unsafeCSS } from 'lit';
 
 export const styles = css`
-  .overlay-mask {
-    pointer-events: auto;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: var(--affine-z-index-popover);
-  }
-
   .slash-menu {
     position: fixed;
     left: 0;
@@ -22,6 +12,7 @@ export const styles = css`
     padding: 8px 4px 8px 8px;
     width: 280px;
     overflow-y: auto;
+    overflow-x: hidden;
     font-family: ${unsafeCSS(baseTheme.fontSansFamily)};
 
     background: ${unsafeCSSVarV2('layer/background/overlayPanel')};
@@ -29,6 +20,11 @@ export const styles = css`
     border-radius: 8px;
     z-index: var(--affine-z-index-popover);
     user-select: none;
+    
+    /* Ensure smooth scrolling within menu and prevent scroll chaining */
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
     /* transition: max-height 0.2s ease-in-out; */
   }
 

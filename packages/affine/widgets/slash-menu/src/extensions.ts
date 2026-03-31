@@ -29,9 +29,14 @@ export class SlashMenuExtension extends Extension {
 
   constructor(readonly std: BlockStdScope) {
     super();
-    this.config = mergeSlashMenuConfigs(
-      this.std.provider.getAll(SlashMenuConfigIdentifier)
-    );
+    try {
+      const configs = this.std.provider.getAll(SlashMenuConfigIdentifier);
+      this.config = mergeSlashMenuConfigs(configs);
+    } catch (error) {
+      console.error('[SlashMenu] Error getting slash menu configs:', error);
+      // Fallback to empty config
+      this.config = { items: () => [], disableWhen: () => false };
+    }
   }
 }
 

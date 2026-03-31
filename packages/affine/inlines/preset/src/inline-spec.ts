@@ -79,6 +79,34 @@ export const CodeInlineSpecExtension =
     },
   });
 
+export const SuperscriptInlineSpecExtension =
+  InlineSpecExtension<AffineTextAttributes>({
+    name: 'superscript',
+    schema: z.object({
+      superscript: z.literal(true).optional().nullable().catch(undefined),
+    }),
+    match: delta => {
+      return !!delta.attributes?.superscript;
+    },
+    renderer: ({ delta }) => {
+      return html`<affine-text .delta=${delta}></affine-text>`;
+    },
+  });
+
+export const SubscriptInlineSpecExtension =
+  InlineSpecExtension<AffineTextAttributes>({
+    name: 'subscript',
+    schema: z.object({
+      subscript: z.literal(true).optional().nullable().catch(undefined),
+    }),
+    match: delta => {
+      return !!delta.attributes?.subscript;
+    },
+    renderer: ({ delta }) => {
+      return html`<affine-text .delta=${delta}></affine-text>`;
+    },
+  });
+
 export const BackgroundInlineSpecExtension =
   InlineSpecExtension<AffineTextAttributes>({
     name: 'background',
@@ -113,6 +141,8 @@ export const InlineSpecExtensions: ExtensionType[] = [
   UnderlineInlineSpecExtension,
   StrikeInlineSpecExtension,
   CodeInlineSpecExtension,
+  SuperscriptInlineSpecExtension,
+  SubscriptInlineSpecExtension,
   BackgroundInlineSpecExtension,
   ColorInlineSpecExtension,
 ];

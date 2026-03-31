@@ -77,8 +77,8 @@ export class EdgelessDefaultToolButton extends QuickToolMixin(LitElement) {
     const { active } = this;
     const tipInfo =
       type === 'pan'
-        ? { tip: 'Hand', shortcut: 'H' }
-        : { tip: 'Select', shortcut: 'V' };
+        ? { tip: '拖拽', shortcut: 'H' }
+        : { tip: '选择', shortcut: 'V' };
     return html`
       <edgeless-tool-icon-button
         class="edgeless-default-button ${type}"

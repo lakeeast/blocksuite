@@ -112,6 +112,7 @@ const builtinToolbarConfig = {
       actions: [
         {
           id: 'a.copy',
+          when: ctx => !ctx.store.readonly, // Hide in readonly mode
           label: 'Copy',
           icon: CopyIcon(),
           run(ctx) {
@@ -121,6 +122,7 @@ const builtinToolbarConfig = {
         },
         {
           id: 'b.duplicate',
+          when: ctx => !ctx.store.readonly, // Hide in readonly mode
           label: 'Duplicate',
           icon: DuplicateIcon(),
           run(ctx) {
@@ -161,6 +163,7 @@ const builtinToolbarConfig = {
       label: 'Delete',
       icon: DeleteIcon(),
       variant: 'destructive',
+      when: ctx => !ctx.store.readonly, // Hide in readonly mode
       run(ctx) {
         const block = ctx.getCurrentBlockByType(ImageBlockComponent);
         if (!block) return;
@@ -200,7 +203,7 @@ const builtinSurfaceToolbarConfig = {
     },
   ],
 
-  when: ctx => ctx.getSurfaceModelsByType(ImageBlockModel).length === 1,
+  when: ctx => ctx.getSurfaceModelsByType(ImageBlockModel).length === 1
 } as const satisfies ToolbarModuleConfig;
 
 export const createBuiltinToolbarConfigExtension = (

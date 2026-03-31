@@ -157,6 +157,91 @@ function canUseFileSystemAccessAPI(
   );
 }
 
+export function openFileOrFiles(options?: {
+  acceptType?: AcceptTypes;
+}): Promise<File | null>;
+export function openFileOrFiles(options: {
+  acceptType?: AcceptTypes;
+  multiple: false;
+}): Promise<File | null>;
+export function openFileOrFiles(options: {
+  acceptType?: AcceptTypes;
+  multiple: true;
+}): Promise<File[] | null>;
+export async function openFileOrFiles({
+  acceptType = 'Any',
+  multiple = false,
+} = {}) {
+  const supportsFileSystemAccess =
+    canUseFileSystemAccessAPI('showOpenFilePicker');
+  if (supportsFileSystemAccess && window.showOpenFilePicker) {
+    try {
+      const fileType = FileTypes.find(i => i.description === acceptType);
+      if (acceptType !== 'Any' && !fileType)
+        throw new BlockSuiteError(
+          ErrorCode.DefaultRuntimeError,
+          `Unexpected acceptType "${acceptType}"`
+        );
+      const pickerOpts = {
+        types: fileType ? [fileType] : undefined,
+        multiple,
+      } satisfies OpenFilePickerOptions;
+      const handles = await window.showOpenFilePicker(pickerOpts);
+      if (!multiple) {
+        const file = await handles[0].getFile();
+        return file;
+      } else {
+        const files = await Promise.all(
+          handles.map(async handle => {
+            const file = await handle.getFile();
+            return file;
+          })
+        );
+        return files;
+      }
+    } catch (err) {
+      console.error('Error opening file');
+      console.error(err);
+      return null;
+    }
+  }
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.classList.add('affine-upload-input');
+    input.style.display = 'none';
+    input.type = 'file';
+    if (multiple) {
+      input.multiple = true;
+    }
+    if (acceptType !== 'Any') {
+      input.accept = Object.keys(
+        FileTypes.find(i => i.description === acceptType)?.accept ?? ''
+      ).join(',');
+    }
+    document.body.append(input);
+    input.addEventListener('change', () => {
+      input.remove();
+      if (!input.files) {
+        resolve(null);
+        return;
+      }
+      if (multiple) {
+        resolve(Array.from(input.files));
+        return;
+      }
+      resolve(input.files[0]);
+    });
+    input.addEventListener('cancel', () => {
+      resolve(null);
+    });
+    if ('showPicker' in HTMLInputElement.prototype) {
+      input.showPicker();
+    } else {
+      input.click();
+    }
+  });
+}
+
 export async function openFilesWith(
   acceptType: AcceptTypes = 'Any',
   multiple: boolean = true

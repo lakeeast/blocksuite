@@ -6,7 +6,7 @@ import type { DenseMenuBuilder } from '@blocksuite/affine-widget-edgeless-toolba
 
 export const buildLinkDenseMenu: DenseMenuBuilder = edgeless =>
   menu.action({
-    name: 'Link',
+    name: '链接',
     prefix: LinkIcon,
     select: () => {
       const [_, { insertedLinkType }] = edgeless.std.command.exec(

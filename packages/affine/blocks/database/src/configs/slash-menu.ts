@@ -15,7 +15,7 @@ export const databaseSlashMenuConfig: SlashMenuConfig = {
   disableWhen: ({ model }) => model.flavour === 'affine:database',
   items: [
     {
-      name: 'Table View',
+      name: '表格',
       description: 'Display items in a table format.',
       searchAlias: ['database'],
       icon: DatabaseTableViewIcon(),
@@ -48,7 +48,7 @@ export const databaseSlashMenuConfig: SlashMenuConfig = {
     },
 
     {
-      name: 'Kanban View',
+      name: '看板',
       description: 'Visualize data in a dashboard.',
       searchAlias: ['database'],
       icon: DatabaseKanbanViewIcon(),

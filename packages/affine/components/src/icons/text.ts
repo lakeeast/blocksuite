@@ -135,6 +135,52 @@ export const LinkIcon = icons.LinkIcon({
   height: '20',
 });
 
+export const SuperscriptIcon = html`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="20"
+  height="20"
+  viewBox="0 0 20 20"
+  fill="none"
+>
+  <path
+    d="M3.5 15.5L8.5 8.5M8.5 8.5L3.5 4.5M8.5 8.5L13.5 15.5M8.5 8.5L13.5 4.5"
+    stroke="currentColor"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M14 6.5H16.5C16.5 6.5 17.5 6.5 17.5 5.5C17.5 4.5 16.5 4.5 16.5 4.5C16.5 4.5 15.5 4.5 15.5 3.5C15.5 2.5 16.5 2.5 16.5 2.5H14"
+    stroke="currentColor"
+    stroke-width="1.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>`;
+
+export const SubscriptIcon = html`<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="20"
+  height="20"
+  viewBox="0 0 20 20"
+  fill="none"
+>
+  <path
+    d="M3.5 15.5L8.5 8.5M8.5 8.5L3.5 4.5M8.5 8.5L13.5 15.5M8.5 8.5L13.5 4.5"
+    stroke="currentColor"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M14 17.5H16.5C16.5 17.5 17.5 17.5 17.5 16.5C17.5 15.5 16.5 15.5 16.5 15.5C16.5 15.5 15.5 15.5 15.5 14.5C15.5 13.5 16.5 13.5 16.5 13.5H14"
+    stroke="currentColor"
+    stroke-width="1.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>`;
+
 // Slash menu action icons
 export const CopyIcon = icons.CopyIcon({
   width: '20',
