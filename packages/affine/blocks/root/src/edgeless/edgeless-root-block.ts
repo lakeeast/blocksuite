@@ -7,7 +7,6 @@ import {
   type SurfaceBlockModel,
 } from '@blocksuite/affine-block-surface';
 import { isSingleMindMapNode } from '@blocksuite/affine-gfx-mindmap';
-import { PanTool } from '@blocksuite/affine-gfx-pointer';
 import { mountShapeTextEditor } from '@blocksuite/affine-gfx-shape';
 import {
   NoteBlockModel,

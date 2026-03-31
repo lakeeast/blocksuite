@@ -225,7 +225,7 @@ const embedConfig: AttachmentEmbedConfig[] = [
         xywh: bound.serialize(),
       });
     },
-    render: (model, blobUrl) => {
+    render: (_model, blobUrl) => {
       // Render DICOM viewer iframe without event mask to allow mouse interactions
       return html`
         <iframe

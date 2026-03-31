@@ -25,14 +25,12 @@ import {
 import { formatSize } from '@blocksuite/affine-shared/utils';
 import {
   AttachmentIcon,
-  ResetIcon,
   UpgradeIcon,
 } from '@blocksuite/icons/lit';
 import { BlockSelection } from '@blocksuite/std';
 import { nanoid, Slice } from '@blocksuite/store';
 import { computed, signal } from '@preact/signals-core';
 import { html, type TemplateResult } from 'lit';
-import { choose } from 'lit/directives/choose.js';
 import { type ClassInfo, classMap } from 'lit/directives/class-map.js';
 import { guard } from 'lit/directives/guard.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -139,7 +137,7 @@ reload = () => {
   // For non-embedded or cloud attachments (no blobUrl), perform full refresh
   this.resourceController.updateState({ downloading: true });
   this.refreshData();
-  this.resourceController.updateState({ downloading: false, state: 'none' });
+  this.resourceController.updateState({ downloading: false });
   this._refreshKey$.value = nanoid();
   console.log('Full reload, updated refreshKey:', this._refreshKey$.value);
 };
@@ -262,7 +260,7 @@ reload = () => {
     );
   };
 
-  protected renderNormalButton = (needUpload: boolean) => {
+  protected renderNormalButton = (_needUpload: boolean) => {
     return null;
   };
 
@@ -271,10 +269,7 @@ reload = () => {
     {
       icon,
       title,
-      description,
       kind,
-      state,
-      needUpload,
     }: AttachmentResolvedStateInfo
   ) {
     return html`
@@ -300,8 +295,6 @@ reload = () => {
       title,
       description,
       kind,
-      state,
-      needUpload,
     }: AttachmentResolvedStateInfo
   ) {
     return html`
@@ -331,7 +324,7 @@ reload = () => {
 
     const resolvedState = this.resourceController.resolveStateWith({
       loadingIcon: LoadingIcon(),
-      errorIcon: null, // Suppress warning symbol
+      errorIcon: undefined, // Suppress warning symbol
       icon: AttachmentIcon(),
       title: name,
       description: formatSize(size),

@@ -1,5 +1,6 @@
 import { extMimeMap, getAssetName } from '@blocksuite/store';
 import * as fflate from 'fflate';
+// @ts-expect-error js-yaml has no type declarations
 import { FAILSAFE_SCHEMA, load as loadYaml } from 'js-yaml';
 
 export class Zip {

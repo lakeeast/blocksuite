@@ -35,7 +35,6 @@ import { computed } from '@preact/signals-core';
 import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
-import JSZip from 'jszip';
 import { toast } from '@blocksuite/affine-components/toast';
 
 import { AttachmentBlockComponent } from '../attachment-block';
@@ -59,12 +58,6 @@ declare global {
   interface Window {
     decoder: { CoreApi: DecoderCoreApi };
   }
-}
-
-// Utility to normalize filenames
-function normalizeFilename(filename: string): string {
-  if (typeof filename !== 'string') return '';
-  return filename.trim().toLowerCase().split('/').pop() || '';
 }
 
 // Utility to determine if the browser (parent) URL indicates a read-only view.
@@ -95,7 +88,7 @@ async function getAttachmentBlob(block: AttachmentBlockComponent): Promise<Blob 
 
   if (resourceController.state$.peek().downloading) {
     console.log('Download in progress, resetting state for:', model.props.name);
-    resourceController.updateState({ downloading: false, state: 'none' });
+    resourceController.updateState({ downloading: false });
   }
 
   try {
@@ -112,19 +105,13 @@ async function getAttachmentBlob(block: AttachmentBlockComponent): Promise<Blob 
       }
       const blob = await response.blob();
       console.log('Blob fetched from blobUrl, size:', blob.size);
-      resourceController.updateState({ downloading: false, state: 'none' });
+      resourceController.updateState({ downloading: false });
       return blob;
     }
 
     if (!model.props.sourceId$.value) {
-      console.log('No sourceId, checking for local blob');
-      const localBlob = await std.store.blobSync.getLocalBlob?.(model.id);
-      if (localBlob) {
-        console.log('Local blob found, size:', localBlob.size);
-        resourceController.updateState({ downloading: false, state: 'none' });
-        return localBlob;
-      }
-      throw new Error('No sourceId or local blob available for attachment');
+      console.log('No sourceId available for attachment');
+      throw new Error('No sourceId available for attachment');
     }
 
     console.log('Fetching blob from blobSync with sourceId:', model.props.sourceId$.value);
@@ -133,7 +120,7 @@ async function getAttachmentBlob(block: AttachmentBlockComponent): Promise<Blob 
       throw new Error(`Blob not found in blobSync for sourceId: ${model.props.sourceId$.value}`);
     }
     console.log('Blob fetched from blobSync, size:', blob.size);
-    resourceController.updateState({ downloading: false, state: 'none' });
+    resourceController.updateState({ downloading: false });
     return blob;
   } catch (error) {
     console.error('Blob fetch error:', error, {
@@ -144,7 +131,7 @@ async function getAttachmentBlob(block: AttachmentBlockComponent): Promise<Blob 
     if (block.blobUrl) {
       toast(host, `Failed to fetch blob for ${model.props.name}!`);
     }
-    resourceController.updateState({ downloading: false, state: 'error' });
+    resourceController.updateState({ downloading: false, errorMessage: 'Failed to fetch blob' });
     return null;
   }
 }
@@ -210,7 +197,7 @@ class ThreeDViewerPopup extends LitElement {
     window.addEventListener('message', this._messageListener);
   }
 
-  disconnectedCallback() {
+  override disconnectedCallback() {
     super.disconnectedCallback();
     // Clean up
     window.removeEventListener('message', this._messageListener);
@@ -250,7 +237,7 @@ class ThreeDViewerPopup extends LitElement {
     const iframe = this.shadowRoot?.querySelector('#threed-viewer-iframe') as HTMLIFrameElement;
     if (!iframe || !iframe.contentDocument || !iframe.contentWindow) {
       console.error('Iframe not ready');
-      toast(this.block?.host, 'Failed to load 3D viewer');
+      toast(this.block!.host, 'Failed to load 3D viewer');
       return;
     }
     const doc = iframe.contentDocument!;
@@ -282,22 +269,22 @@ class ThreeDViewerPopup extends LitElement {
     const workspace = this.std?.store.workspace as any;
     if (!workspace) {
       console.error('Workspace not found');
-      toast(this.block?.host, 'Failed to load 3D viewer');
+      toast(this.block!.host, 'Failed to load 3D viewer');
       return;
     }
     const fileName = this.model?.props.name || '';
     const extension = fileName.split('.').pop()?.toLowerCase() || '';
-    let url = this.model?.props.blobUrl || '';
+    let url = this.block?.blobUrl || '';
     if (!url) {
       const blob = await getAttachmentBlob(this.block!);
-      url = URL.createObjectURL(blob);
+      if (blob) url = URL.createObjectURL(blob);
     }
-    const mgr = await threedElement._instance.exposed.createVtkManager(extension); // Static function
+    const mgr = await (threedElement as any)._instance.exposed.createVtkManager(extension); // Static function
     await mgr.loadFromUrl(url); // Alternatively
     try {
       // TODO: load 3D model from file
       //await (threedElement as any).setStudyManager(studyManager);
-      await threedElement._instance.exposed.setVtkManager(mgr); // Load the mgr
+      await (threedElement as any)._instance.exposed.setVtkManager(mgr); // Load the mgr
       console.log(`Set setVtkManager for model ${this.model?.props.name}`);
 
       // Clean up event listeners
@@ -322,7 +309,7 @@ class ThreeDViewerPopup extends LitElement {
       }
     } catch (error) {
       console.error('Failed to initialize DICOM viewer in iframe:', error);
-      toast(this.block?.host, 'Failed to load DICOM viewer');
+      toast(this.block!.host, 'Failed to load DICOM viewer');
     }
   }
 
@@ -400,7 +387,7 @@ class ARViewerPopup extends LitElement {
     super.connectedCallback();
   }
 
-  disconnectedCallback() {
+  override disconnectedCallback() {
     super.disconnectedCallback();
   }
 
@@ -427,7 +414,7 @@ class ARViewerPopup extends LitElement {
     const iframe = this.shadowRoot?.querySelector('#ar-viewer-iframe') as HTMLIFrameElement;
     if (!iframe || !iframe.contentDocument || !iframe.contentWindow) {
       console.error('Iframe not ready');
-      toast(this.block?.host, 'Failed to load 3D viewer');
+      toast(this.block!.host, 'Failed to load 3D viewer');
       return;
     }
     const doc = iframe.contentDocument!;
@@ -459,15 +446,13 @@ class ARViewerPopup extends LitElement {
     const workspace = this.std?.store.workspace as any;
     if (!workspace) {
       console.error('Workspace not found');
-      toast(this.block?.host, 'Failed to load 3D viewer');
+      toast(this.block!.host, 'Failed to load 3D viewer');
       return;
     }
-    const fileName = this.model?.props.name || '';
-    const extension = fileName.split('.').pop()?.toLowerCase() || '';
-    let url = this.model?.props.blobUrl || '';
+    let url = this.block?.blobUrl || '';
     if (!url) {
       const blob = await getAttachmentBlob(this.block!);
-      url = URL.createObjectURL(blob);
+      if (blob) url = URL.createObjectURL(blob);
     }
 
     arElement.setAttribute('shadow-intensity', '1');
@@ -500,7 +485,7 @@ class ARViewerPopup extends LitElement {
       }
     } catch (error) {
       console.error('Failed to initialize DICOM viewer in iframe:', error);
-      toast(this.block?.host, 'Failed to load DICOM viewer');
+      toast(this.block!.host, 'Failed to load DICOM viewer');
     }
   }
 
@@ -604,17 +589,12 @@ class DicomViewerPopup extends LitElement {
     `;
   }
 
-  override firstUpdated() {
-    // Load DICOM viewer directly without iframe
-    this._setupDirectDicomViewer();
-  }
-
   private _setupDirectDicomViewer() {
     const container = this.shadowRoot?.querySelector('#dicom-viewer-container') as HTMLElement;
     
     if (!container) {
       console.error('DICOM container not found');
-      toast(this.block?.host, 'Failed to load DICOM viewer');
+      toast(this.block!.host, 'Failed to load DICOM viewer');
       return;
     }
 
@@ -638,7 +618,7 @@ class DicomViewerPopup extends LitElement {
     script.src = '/block/qt-sdk/quantant-viewer.js';
     script.async = true;
     script.onload = () => this._createDicomElement(container);
-    script.onerror = () => toast(this.block?.host, 'Failed to load DICOM viewer');
+    script.onerror = () => toast(this.block!.host, 'Failed to load DICOM viewer');
     document.head.appendChild(script);
   }
 
@@ -667,7 +647,7 @@ class DicomViewerPopup extends LitElement {
     const workspace = this.std?.store.workspace as any;
     if (!workspace || !workspace.studyManagerRegistry) {
       console.error('Workspace or studyManagerRegistry not found');
-      toast(this.block?.host, 'Failed to load DICOM viewer');
+      toast(this.block!.host, 'Failed to load DICOM viewer');
       return;
     }
 
@@ -675,14 +655,14 @@ class DicomViewerPopup extends LitElement {
     const dicomGuid = fileName.replace(/\.[^/.]+$/, '');
     if (!dicomGuid) {
       console.error('No dicomGuid found in attachment model');
-      toast(this.block?.host, 'No DICOM study ID found');
+      toast(this.block!.host, 'No DICOM study ID found');
       return;
     }
 
     const studyManager = workspace.studyManagerRegistry.get(dicomGuid);
     if (!studyManager) {
       console.error(`No studyManager found for dicomGuid ${dicomGuid}`);
-      toast(this.block?.host, 'DICOM study not found');
+      toast(this.block!.host, 'DICOM study not found');
       return;
     }
 
@@ -716,7 +696,7 @@ class DicomViewerPopup extends LitElement {
         }
       };
 
-      const closeListener = (event: any) => {
+      const closeListener = (_event: any) => {
         this._handleClose();
       }
 
@@ -749,7 +729,7 @@ class DicomViewerPopup extends LitElement {
       }
     } catch (error) {
       console.error('Failed to initialize DICOM viewer directly:', error);
-      toast(this.block?.host, 'Failed to load DICOM viewer');
+      toast(this.block!.host, 'Failed to load DICOM viewer');
     }
   }
 
@@ -814,7 +794,7 @@ export const attachmentViewDropdownMenu = {
         const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
         if (!model || !block) {
           console.error('Missing model or block');
-          toast(block?.host, 'Failed to load embed view');
+          toast(block!.host, 'Failed to load embed view');
           return;
         }
 
@@ -832,13 +812,13 @@ export const attachmentViewDropdownMenu = {
               ctx.select('note');
             }
           }, 0);
-        } catch (err) {
+        } catch (err: unknown) {
           console.error('Embed view failed:', {
-            error: err.message,
-            stack: err.stack,
+            error: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
             name: model.props.name,
           });
-          toast(block?.host, `Failed to load ${model.props.name}`);
+          toast(block!.host, `Failed to load ${model.props.name}`);
         }
 
         ctx.track('SelectedView', {
@@ -870,7 +850,7 @@ export const attachmentViewDropdownMenu = {
         const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
         if (!model || !block) {
           console.error('Missing model or block');
-          toast(block?.host, 'Failed to load DICOM view');
+          toast(block!.host, 'Failed to load DICOM view');
           return;
         }
 
@@ -894,7 +874,7 @@ export const attachmentViewDropdownMenu = {
         };
         currentPopupInstance = popup;
 
-        const portal = createLitPortal({
+        createLitPortal({
           template: popup,
           abortController,
         });
@@ -930,7 +910,7 @@ export const attachmentViewDropdownMenu = {
         const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
         if (!model || !block) {
           console.error('Missing model or block');
-          toast(block?.host, 'Failed to load 3D view');
+          toast(block!.host, 'Failed to load 3D view');
           return;
         }
 
@@ -954,7 +934,7 @@ export const attachmentViewDropdownMenu = {
         };
         currentThreeDPopupInstance = popup;
 
-        const portal = createLitPortal({
+        createLitPortal({
           template: popup,
           abortController,
         });
@@ -990,7 +970,7 @@ export const attachmentViewDropdownMenu = {
         const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
         if (!model || !block) {
           console.error('Missing model or block');
-          toast(block?.host, 'Failed to load 3D view');
+          toast(block!.host, 'Failed to load 3D view');
           return;
         }
 
@@ -1014,7 +994,7 @@ export const attachmentViewDropdownMenu = {
         };
         currentThreeDPopupInstance = popup;
 
-        const portal = createLitPortal({
+        createLitPortal({
           template: popup,
           abortController,
         });
@@ -1095,7 +1075,7 @@ export const attachmentViewDropdownMenu = {
           console.log('Forcing reload for Embed view:', model.props.name);
           block.resourceController.updateState({ downloading: true });
           block.reload();
-          block.resourceController.updateState({ downloading: false, state: 'none' });
+          block.resourceController.updateState({ downloading: false });
         } else if (viewType$.value === 'DICOM view') {
           console.log('Triggering DICOM view for:', model.props.name);
 
@@ -1119,7 +1099,7 @@ export const attachmentViewDropdownMenu = {
           };
           currentPopupInstance = popup;
 
-          const portal = createLitPortal({
+          createLitPortal({
             template: popup,
             abortController,
           });
@@ -1154,7 +1134,7 @@ export const attachmentViewDropdownMenu = {
           };
           currentThreeDPopupInstance = popup;
 
-          const portal = createLitPortal({
+          createLitPortal({
             template: popup,
             abortController,
           });
@@ -1183,7 +1163,7 @@ export const attachmentViewDropdownMenu = {
           };
           currentARPopupInstance = popup;
 
-          const portal = createLitPortal({
+          createLitPortal({
             template: popup,
             abortController,
           });
@@ -1219,9 +1199,9 @@ const replaceAction = {
   },
   run(ctx) {
     const block = ctx.getCurrentBlockByType(AttachmentBlockComponent);
-    block?.replace().catch(console.error);
+    block?.refreshData();
   },
-  when: ctx => false, // Hide "Replace Attachment" always
+  when: _ctx => false, // Hide "Replace Attachment" always
 } as const satisfies ToolbarAction;
 
 const downloadAction = {

@@ -2,12 +2,12 @@ import {
   convertToDatabase,
   DATABASE_CONVERT_WHITE_LIST,
 } from '@blocksuite/affine-block-database';
-import {
-  convertSelectedBlocksToLinkedDoc,
-  getTitleFromSelectedModels,
-  notifyDocCreated,
-  promptDocTitle,
-} from '@blocksuite/affine-block-embed';
+// import {
+//   convertSelectedBlocksToLinkedDoc,
+//   getTitleFromSelectedModels,
+//   notifyDocCreated,
+//   promptDocTitle,
+// } from '@blocksuite/affine-block-embed';
 import {
   updateBlockAlign,
   updateBlockType,
@@ -24,8 +24,6 @@ import {
   textFormatConfigs,
 } from '@blocksuite/affine-inline-preset';
 import {
-  EmbedLinkedDocBlockSchema,
-  EmbedSyncedDocBlockSchema,
   type TextAlign,
 } from '@blocksuite/affine-model';
 import {
@@ -60,14 +58,12 @@ import {
   DatabaseTableViewIcon,
   DeleteIcon,
   DuplicateIcon,
-  LinkedPageIcon,
 } from '@blocksuite/icons/lit';
 import {
   type BlockComponent,
   BlockSelection,
-  BlockViewIdentifier,
 } from '@blocksuite/std';
-import { toDraftModel } from '@blocksuite/store';
+// import { toDraftModel } from '@blocksuite/store';
 import { html } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 
@@ -284,75 +280,8 @@ const turnIntoDatabase = {
   },
 } as const satisfies ToolbarAction;
 
-const turnIntoLinkedDoc = {
-  id: 'f.convert-to-linked-doc',
-  tooltip: 'Create Linked Doc',
-  icon: LinkedPageIcon(),
-  when({ chain, std }) {
-    const supportFlavours = [
-      EmbedLinkedDocBlockSchema,
-      EmbedSyncedDocBlockSchema,
-    ].map(schema => schema.model.flavour);
-    if (
-      supportFlavours.some(
-        flavour => !std.getOptional(BlockViewIdentifier(flavour))
-      )
-    )
-      return false;
-
-    const [ok, { selectedModels }] = chain
-      .pipe(getSelectedModelsCommand, {
-        types: ['block', 'text'],
-        mode: 'flat',
-      })
-      .run();
-    return ok && Boolean(selectedModels?.length);
-  },
-  run({ chain, store, selection, std, track }) {
-    const [ok, { draftedModels, selectedModels }] = chain
-      .pipe(getSelectedModelsCommand, {
-        types: ['block', 'text'],
-        mode: 'flat',
-      })
-      .pipe(draftSelectedModelsCommand)
-      .run();
-    if (!ok || !draftedModels || !selectedModels?.length) return;
-
-    selection.clear();
-
-    const autofill = getTitleFromSelectedModels(
-      selectedModels.map(toDraftModel)
-    );
-    promptDocTitle(std, autofill)
-      .then(async title => {
-        if (title === null) return;
-        await convertSelectedBlocksToLinkedDoc(
-          std,
-          store,
-          draftedModels,
-          title
-        );
-        notifyDocCreated(std);
-
-        track('DocCreated', {
-          segment: 'doc',
-          page: 'doc editor',
-          module: 'toolbar',
-          control: 'create linked doc',
-          type: 'embed-linked-doc',
-        });
-
-        track('LinkedDocCreated', {
-          segment: 'doc',
-          page: 'doc editor',
-          module: 'toolbar',
-          control: 'create linked doc',
-          type: 'embed-linked-doc',
-        });
-      })
-      .catch(console.error);
-  },
-} as const satisfies ToolbarAction;
+// turnIntoLinkedDoc is disabled - commented out to avoid unused variable errors
+// const turnIntoLinkedDoc = { ... } as const satisfies ToolbarAction;
 
 export const builtinToolbarConfig = {
   actions: [
