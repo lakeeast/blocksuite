@@ -177,6 +177,15 @@ export class AffineSlashMenuWidget extends WidgetComponent {
     const inlineEditor = this._getInlineEditor(event);
     if (!inlineEditor) return;
 
+    // For Android, be more aggressive since keydown events may not fire
+    if (IS_ANDROID) {
+      setTimeout(() => {
+        this._handleInput(inlineEditor, false);
+      }, 1);
+      this._handleInput(inlineEditor, false);
+      return;
+    }
+
     // Wait for the input to be processed, then handle it
     // Pass true because after waitForUpdate(), the range is already synced
     inlineEditor
@@ -187,10 +196,6 @@ export class AffineSlashMenuWidget extends WidgetComponent {
       .catch(console.error);
   };
 
-
-
-
-
   get config() {
     return this.std.get(SlashMenuExtension).config;
   }
@@ -198,34 +203,6 @@ export class AffineSlashMenuWidget extends WidgetComponent {
   // TODO(@L-Sun): Remove this when moving each config item to corresponding blocks
   // This is a temporary way for patching the slash menu config
   configItemTransform: (item: SlashMenuItem) => SlashMenuItem = item => item;
-
-  private readonly _onBeforeInput = (ctx: UIEventStateContext) => {
-    const event = ctx.get('defaultState').event as InputEvent;
-
-    // Handle Android keyboards that might not trigger keydown events properly
-    if (event.data !== AFFINE_SLASH_MENU_TRIGGER_KEY) return;
-
-    // For Android, be more aggressive
-    if (IS_ANDROID) {
-      // Don't prevent default - let the character be typed first
-      const inlineEditor = this._getInlineEditor(event);
-      if (inlineEditor) {
-        // Very short delay to let the character appear in DOM
-        setTimeout(() => {
-          this._handleInput(inlineEditor, false);
-        }, 1);
-        
-        // Also try immediate trigger without waiting for DOM update
-        this._handleInput(inlineEditor, false);
-        return;
-      }
-    }
-
-    const inlineEditor = this._getInlineEditor(event);
-    if (!inlineEditor) return;
-
-    this._handleInput(inlineEditor, false);
-  };
 
   override connectedCallback() {
     super.connectedCallback();
