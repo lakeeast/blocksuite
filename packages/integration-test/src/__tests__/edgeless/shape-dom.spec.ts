@@ -5,6 +5,34 @@ import { wait } from '../utils/common.js';
 import { getSurface } from '../utils/edgeless.js';
 import { setupEditor } from '../utils/setup.js';
 
+function expectPxCloseTo(
+  value: string,
+  expected: number,
+  precision: number = 2
+) {
+  expect(Number.parseFloat(value)).toBeCloseTo(expected, precision);
+}
+
+async function waitForShapeElement(
+  surfaceView: ReturnType<typeof getSurface>,
+  shapeId: string,
+  timeout = 1000
+) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeout) {
+    const shapeElement = surfaceView.renderRoot.querySelector<HTMLElement>(
+      `[data-element-id="${shapeId}"]`
+    );
+
+    if (shapeElement) return shapeElement;
+
+    await wait(50);
+  }
+
+  return null;
+}
+
 describe('Shape rendering with DOM renderer', () => {
   beforeEach(async () => {
     const cleanup = await setupEditor('edgeless', [], {
@@ -32,10 +60,7 @@ describe('Shape rendering with DOM renderer', () => {
     };
     const shapeId = surfaceModel.addElement(shapeProps);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const shapeElement = surfaceView?.renderRoot.querySelector(
-      `[data-element-id="${shapeId}"]`
-    );
+    const shapeElement = await waitForShapeElement(surfaceView, shapeId);
 
     expect(shapeElement).not.toBeNull();
     expect(shapeElement).toBeInstanceOf(HTMLElement);
@@ -53,13 +78,11 @@ describe('Shape rendering with DOM renderer', () => {
       stroke: '#000000',
     };
     const shapeId = surfaceModel.addElement(shapeProps);
-    await wait(100);
-    const shapeElement = surfaceView?.renderRoot.querySelector<HTMLElement>(
-      `[data-element-id="${shapeId}"]`
-    );
+    const shapeElement = await waitForShapeElement(surfaceView, shapeId);
 
     expect(shapeElement).not.toBeNull();
-    expect(shapeElement?.style.borderRadius).toBe('6px');
+    const zoom = surfaceView.renderer.viewport.zoom;
+    expectPxCloseTo(shapeElement!.style.borderRadius, 6 * zoom);
   });
 
   test('should remove shape DOM node when element is deleted', async () => {
@@ -75,16 +98,12 @@ describe('Shape rendering with DOM renderer', () => {
     };
     const shapeId = surfaceModel.addElement(shapeProps);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    let shapeElement = surfaceView.renderRoot.querySelector(
-      `[data-element-id="${shapeId}"]`
-    );
+    let shapeElement = await waitForShapeElement(surfaceView, shapeId);
     expect(shapeElement).not.toBeNull();
 
     surfaceModel.deleteElement(shapeId);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await wait(100);
 
     shapeElement = surfaceView.renderRoot.querySelector(
       `[data-element-id="${shapeId}"]`
@@ -104,14 +123,12 @@ describe('Shape rendering with DOM renderer', () => {
       filled: true,
     };
     const shapeId = surfaceModel.addElement(shapeProps);
-    await wait(100);
-    const shapeElement = surfaceView?.renderRoot.querySelector<HTMLElement>(
-      `[data-element-id="${shapeId}"]`
-    );
+    const shapeElement = await waitForShapeElement(surfaceView, shapeId);
 
     expect(shapeElement).not.toBeNull();
-    expect(shapeElement?.style.width).toBe('80px');
-    expect(shapeElement?.style.height).toBe('60px');
+    const zoom = surfaceView.renderer.viewport.zoom;
+    expectPxCloseTo(shapeElement!.style.width, 80 * zoom);
+    expectPxCloseTo(shapeElement!.style.height, 60 * zoom);
   });
 
   test('should correctly render triangle shape', async () => {
@@ -126,13 +143,11 @@ describe('Shape rendering with DOM renderer', () => {
       filled: true,
     };
     const shapeId = surfaceModel.addElement(shapeProps);
-    await wait(100);
-    const shapeElement = surfaceView?.renderRoot.querySelector<HTMLElement>(
-      `[data-element-id="${shapeId}"]`
-    );
+    const shapeElement = await waitForShapeElement(surfaceView, shapeId);
 
     expect(shapeElement).not.toBeNull();
-    expect(shapeElement?.style.width).toBe('80px');
-    expect(shapeElement?.style.height).toBe('60px');
+    const zoom = surfaceView.renderer.viewport.zoom;
+    expectPxCloseTo(shapeElement!.style.width, 80 * zoom);
+    expectPxCloseTo(shapeElement!.style.height, 60 * zoom);
   });
 });

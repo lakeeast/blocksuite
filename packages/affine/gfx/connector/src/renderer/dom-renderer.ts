@@ -1,14 +1,20 @@
-import type { DomRenderer } from '@blocksuite/affine-block-surface';
+import {
+  DomElementRendererExtension,
+  type DomRenderer,
+} from '@blocksuite/affine-block-surface';
 import {
   type ConnectorElementModel,
   ConnectorMode,
   DefaultTheme,
+  type LocalConnectorElementModel,
   type PointStyle,
 } from '@blocksuite/affine-model';
 import { PointLocation, SVGPathBuilder } from '@blocksuite/global/gfx';
 
-import { isConnectorWithLabel } from '../../connector-manager.js';
-import { DEFAULT_ARROW_SIZE } from '../utils.js';
+import { isConnectorWithLabel } from '../connector-manager';
+import { DEFAULT_ARROW_SIZE } from './utils';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 interface PathBounds {
   minX: number;
@@ -16,6 +22,15 @@ interface PathBounds {
   maxX: number;
   maxY: number;
 }
+
+type RetainedConnectorDom = {
+  defs: SVGDefsElement;
+  label: HTMLDivElement | null;
+  path: SVGPathElement;
+  svg: SVGSVGElement;
+};
+
+const retainedConnectorDom = new WeakMap<HTMLElement, RetainedConnectorDom>();
 
 function calculatePathBounds(path: PointLocation[]): PathBounds {
   if (path.length === 0) {
@@ -77,10 +92,7 @@ function createArrowMarker(
   strokeWidth: number,
   isStart: boolean = false
 ): SVGMarkerElement {
-  const marker = document.createElementNS(
-    'http://www.w3.org/2000/svg',
-    'marker'
-  );
+  const marker = document.createElementNS(SVG_NS, 'marker');
   const size = DEFAULT_ARROW_SIZE * (strokeWidth / 2);
 
   marker.id = id;
@@ -94,10 +106,7 @@ function createArrowMarker(
 
   switch (style) {
     case 'Arrow': {
-      const path = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'path'
-      );
+      const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute(
         'd',
         isStart ? 'M 20 5 L 10 10 L 20 15 Z' : 'M 0 5 L 10 10 L 0 15 Z'
@@ -108,10 +117,7 @@ function createArrowMarker(
       break;
     }
     case 'Triangle': {
-      const path = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'path'
-      );
+      const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute(
         'd',
         isStart ? 'M 20 7 L 12 10 L 20 13 Z' : 'M 0 7 L 8 10 L 0 13 Z'
@@ -122,10 +128,7 @@ function createArrowMarker(
       break;
     }
     case 'Circle': {
-      const circle = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'circle'
-      );
+      const circle = document.createElementNS(SVG_NS, 'circle');
       circle.setAttribute('cx', '10');
       circle.setAttribute('cy', '10');
       circle.setAttribute('r', '4');
@@ -135,10 +138,7 @@ function createArrowMarker(
       break;
     }
     case 'Diamond': {
-      const path = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'path'
-      );
+      const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute('d', 'M 10 6 L 14 10 L 10 14 L 6 10 Z');
       path.setAttribute('fill', color);
       path.setAttribute('stroke', color);
@@ -150,13 +150,64 @@ function createArrowMarker(
   return marker;
 }
 
+function clearRetainedConnectorDom(element: HTMLElement) {
+  retainedConnectorDom.delete(element);
+  element.replaceChildren();
+}
+
+function getRetainedConnectorDom(element: HTMLElement): RetainedConnectorDom {
+  const existing = retainedConnectorDom.get(element);
+
+  if (existing) {
+    return existing;
+  }
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.style.position = 'absolute';
+  svg.style.overflow = 'visible';
+  svg.style.pointerEvents = 'none';
+
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+
+  svg.append(defs, path);
+  element.replaceChildren(svg);
+
+  const retained = {
+    svg,
+    defs,
+    path,
+    label: null,
+  };
+  retainedConnectorDom.set(element, retained);
+
+  return retained;
+}
+
+function getOrCreateLabelElement(retained: RetainedConnectorDom) {
+  if (retained.label) {
+    return retained.label;
+  }
+
+  const label = document.createElement('div');
+  retained.svg.insertAdjacentElement('afterend', label);
+  retained.label = label;
+
+  return label;
+}
+
 function renderConnectorLabel(
   model: ConnectorElementModel,
-  container: HTMLElement,
+  retained: RetainedConnectorDom,
   renderer: DomRenderer,
   zoom: number
 ) {
   if (!isConnectorWithLabel(model) || !model.labelXYWH) {
+    retained.label?.remove();
+    retained.label = null;
     return;
   }
 
@@ -172,8 +223,7 @@ function renderConnectorLabel(
     },
   } = model;
 
-  // Create label element
-  const labelElement = document.createElement('div');
+  const labelElement = getOrCreateLabelElement(retained);
   labelElement.style.position = 'absolute';
   labelElement.style.left = `${lx * zoom}px`;
   labelElement.style.top = `${ly * zoom}px`;
@@ -206,11 +256,7 @@ function renderConnectorLabel(
   labelElement.style.wordWrap = 'break-word';
 
   // Add text content
-  if (model.text) {
-    labelElement.textContent = model.text.toString();
-  }
-
-  container.append(labelElement);
+  labelElement.textContent = model.text ? model.text.toString() : '';
 }
 
 /**
@@ -221,8 +267,8 @@ function renderConnectorLabel(
  * @param element - The HTMLElement to apply the connector's styles to.
  * @param renderer - The main DOMRenderer instance, providing access to viewport and color utilities.
  */
-export const connectorDomRenderer = (
-  model: ConnectorElementModel,
+export const connectorBaseDomRenderer = (
+  model: ConnectorElementModel | LocalConnectorElementModel,
   element: HTMLElement,
   renderer: DomRenderer
 ): void => {
@@ -237,13 +283,12 @@ export const connectorDomRenderer = (
     stroke,
   } = model;
 
-  // Clear previous content
-  element.innerHTML = '';
-
-  // Early return if no path points
   if (!points || points.length < 2) {
+    clearRetainedConnectorDom(element);
     return;
   }
+
+  const retained = getRetainedConnectorDom(element);
 
   // Calculate bounds for the SVG viewBox
   const pathBounds = calculatePathBounds(points);
@@ -253,8 +298,7 @@ export const connectorDomRenderer = (
   const offsetX = pathBounds.minX - padding;
   const offsetY = pathBounds.minY - padding;
 
-  // Create SVG element
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const { defs, path, svg } = retained;
   svg.style.position = 'absolute';
   svg.style.left = `${offsetX * zoom}px`;
   svg.style.top = `${offsetY * zoom}px`;
@@ -264,49 +308,43 @@ export const connectorDomRenderer = (
   svg.style.pointerEvents = 'none';
   svg.setAttribute('viewBox', `0 0 ${svgWidth / zoom} ${svgHeight / zoom}`);
 
-  // Create defs for markers
-  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-  svg.append(defs);
-
   const strokeColor = renderer.getColorValue(
     stroke,
     DefaultTheme.connectorColor,
     true
   );
 
-  // Create markers for endpoints
+  const markers: SVGMarkerElement[] = [];
   let startMarkerId = '';
   let endMarkerId = '';
 
   if (frontEndpointStyle !== 'None') {
     startMarkerId = `start-marker-${model.id}`;
-    const startMarker = createArrowMarker(
-      startMarkerId,
-      frontEndpointStyle,
-      strokeColor,
-      strokeWidth,
-      true
+    markers.push(
+      createArrowMarker(
+        startMarkerId,
+        frontEndpointStyle,
+        strokeColor,
+        strokeWidth,
+        true
+      )
     );
-    defs.append(startMarker);
   }
 
   if (rearEndpointStyle !== 'None') {
     endMarkerId = `end-marker-${model.id}`;
-    const endMarker = createArrowMarker(
-      endMarkerId,
-      rearEndpointStyle,
-      strokeColor,
-      strokeWidth,
-      false
+    markers.push(
+      createArrowMarker(
+        endMarkerId,
+        rearEndpointStyle,
+        strokeColor,
+        strokeWidth,
+        false
+      )
     );
-    defs.append(endMarker);
   }
 
-  // Create path element
-  const pathElement = document.createElementNS(
-    'http://www.w3.org/2000/svg',
-    'path'
-  );
+  defs.replaceChildren(...markers);
 
   // Adjust points relative to the SVG coordinate system
   const adjustedPoints = points.map(point => {
@@ -330,38 +368,49 @@ export const connectorDomRenderer = (
   });
 
   const pathData = createConnectorPath(adjustedPoints, mode);
-  pathElement.setAttribute('d', pathData);
-  pathElement.setAttribute('stroke', strokeColor);
-  pathElement.setAttribute('stroke-width', String(strokeWidth));
-  pathElement.setAttribute('fill', 'none');
-  pathElement.setAttribute('stroke-linecap', 'round');
-  pathElement.setAttribute('stroke-linejoin', 'round');
-
-  // Apply stroke style
+  path.setAttribute('d', pathData);
+  path.setAttribute('stroke', strokeColor);
+  path.setAttribute('stroke-width', String(strokeWidth));
   if (strokeStyle === 'dash') {
-    pathElement.setAttribute('stroke-dasharray', '12,12');
+    path.setAttribute('stroke-dasharray', '12,12');
+  } else {
+    path.removeAttribute('stroke-dasharray');
   }
-
-  // Apply markers
   if (startMarkerId) {
-    pathElement.setAttribute('marker-start', `url(#${startMarkerId})`);
+    path.setAttribute('marker-start', `url(#${startMarkerId})`);
+  } else {
+    path.removeAttribute('marker-start');
   }
   if (endMarkerId) {
-    pathElement.setAttribute('marker-end', `url(#${endMarkerId})`);
+    path.setAttribute('marker-end', `url(#${endMarkerId})`);
+  } else {
+    path.removeAttribute('marker-end');
   }
-
-  svg.append(pathElement);
-  element.append(svg);
 
   // Set element size and position
   element.style.width = `${model.w * zoom}px`;
   element.style.height = `${model.h * zoom}px`;
   element.style.overflow = 'visible';
   element.style.pointerEvents = 'none';
-
-  // Set z-index for layering
-  element.style.zIndex = renderer.layerManager.getZIndex(model).toString();
-
-  // Render label if present
-  renderConnectorLabel(model, element, renderer, zoom);
 };
+
+export const connectorDomRenderer = (
+  model: ConnectorElementModel,
+  element: HTMLElement,
+  renderer: DomRenderer
+): void => {
+  connectorBaseDomRenderer(model, element, renderer);
+
+  const retained = retainedConnectorDom.get(element);
+  if (!retained) return;
+
+  renderConnectorLabel(model, retained, renderer, renderer.viewport.zoom);
+};
+
+/**
+ * Extension to register the DOM-based renderer for 'connector' elements.
+ */
+export const ConnectorDomRendererExtension = DomElementRendererExtension(
+  'connector',
+  connectorDomRenderer
+);

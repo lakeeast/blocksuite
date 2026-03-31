@@ -20,7 +20,28 @@ declare global {
     showOpenFilePicker?: (
       options?: OpenFilePickerOptions
     ) => Promise<FileSystemFileHandle[]>;
+    // Window API: showDirectoryPicker
+    showDirectoryPicker?: (options?: {
+      id?: string;
+      mode?: 'read' | 'readwrite';
+      startIn?: FileSystemHandle | string;
+    }) => Promise<FileSystemDirectoryHandle>;
   }
+}
+
+// Minimal polyfill for FileSystemDirectoryHandle to iterate over files
+interface FileSystemDirectoryHandle {
+  kind: 'directory';
+  name: string;
+  values(): AsyncIterableIterator<
+    FileSystemFileHandle | FileSystemDirectoryHandle
+  >;
+}
+
+interface FileSystemFileHandle {
+  kind: 'file';
+  name: string;
+  getFile(): Promise<File>;
 }
 
 // See [Common MIME types](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types)
@@ -93,6 +114,13 @@ const FileTypes: NonNullable<OpenFilePickerOptions['types']> = [
     },
   },
   {
+    description: 'Docx',
+    accept: {
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        ['.docx'],
+    },
+  },
+  {
     description: 'MindMap',
     accept: {
       'text/xml': ['.mm', '.opml', '.xml'],
@@ -111,7 +139,23 @@ type AcceptTypes =
   | 'Markdown'
   | 'Html'
   | 'Zip'
+  | 'Docx'
   | 'MindMap';
+
+function canUseFileSystemAccessAPI(
+  api: 'showOpenFilePicker' | 'showDirectoryPicker'
+) {
+  return (
+    api in window &&
+    (() => {
+      try {
+        return window.self === window.top;
+      } catch {
+        return false;
+      }
+    })()
+  );
+}
 
 export function openFileOrFiles(options?: {
   acceptType?: AcceptTypes;
@@ -128,18 +172,8 @@ export async function openFileOrFiles({
   acceptType = 'Any',
   multiple = false,
 } = {}) {
-  // Feature detection. The API needs to be supported
-  // and the app not run in an iframe.
   const supportsFileSystemAccess =
-    'showOpenFilePicker' in window &&
-    (() => {
-      try {
-        return window.self === window.top;
-      } catch {
-        return false;
-      }
-    })();
-  // If the File System Access API is supported…
+    canUseFileSystemAccessAPI('showOpenFilePicker');
   if (supportsFileSystemAccess && window.showOpenFilePicker) {
     try {
       const fileType = FileTypes.find(i => i.description === acceptType);
@@ -152,21 +186,14 @@ export async function openFileOrFiles({
         types: fileType ? [fileType] : undefined,
         multiple,
       } satisfies OpenFilePickerOptions;
-      // Show the file picker, optionally allowing multiple files.
       const handles = await window.showOpenFilePicker(pickerOpts);
-      // Only one file is requested.
       if (!multiple) {
-        // Add the `FileSystemFileHandle` as `.handle`.
         const file = await handles[0].getFile();
-        // Add the `FileSystemFileHandle` as `.handle`.
-        // file.handle = handles[0];
         return file;
       } else {
         const files = await Promise.all(
           handles.map(async handle => {
             const file = await handle.getFile();
-            // Add the `FileSystemFileHandle` as `.handle`.
-            // file.handle = handles[0];
             return file;
           })
         );
@@ -178,9 +205,7 @@ export async function openFileOrFiles({
       return null;
     }
   }
-  // Fallback if the File System Access API is not supported.
   return new Promise(resolve => {
-    // Append a new `<input type="file" multiple? />` and hide it.
     const input = document.createElement('input');
     input.classList.add('affine-upload-input');
     input.style.display = 'none';
@@ -189,33 +214,26 @@ export async function openFileOrFiles({
       input.multiple = true;
     }
     if (acceptType !== 'Any') {
-      // For example, `accept="image/*"` or `accept="video/*,audio/*"`.
       input.accept = Object.keys(
         FileTypes.find(i => i.description === acceptType)?.accept ?? ''
       ).join(',');
     }
     document.body.append(input);
-    // The `change` event fires when the user interacts with the dialog.
     input.addEventListener('change', () => {
-      // Remove the `<input type="file" multiple? />` again from the DOM.
       input.remove();
-      // If no files were selected, return.
       if (!input.files) {
         resolve(null);
         return;
       }
-      // Return all files or just one file.
       if (multiple) {
         resolve(Array.from(input.files));
         return;
       }
       resolve(input.files[0]);
     });
-    // The `cancel` event fires when the user cancels the dialog.
     input.addEventListener('cancel', () => {
       resolve(null);
     });
-    // Show the picker.
     if ('showPicker' in HTMLInputElement.prototype) {
       input.showPicker();
     } else {
@@ -228,17 +246,8 @@ export async function openFilesWith(
   acceptType: AcceptTypes = 'Any',
   multiple: boolean = true
 ): Promise<File[] | null> {
-  // Feature detection. The API needs to be supported
-  // and the app not run in an iframe.
   const supportsFileSystemAccess =
-    'showOpenFilePicker' in window &&
-    (() => {
-      try {
-        return window.self === window.top;
-      } catch {
-        return false;
-      }
-    })();
+    canUseFileSystemAccessAPI('showOpenFilePicker');
 
   // If the File System Access API is supported…
   if (supportsFileSystemAccess && window.showOpenFilePicker) {
@@ -289,6 +298,75 @@ export async function openFilesWith(
     // The `cancel` event fires when the user cancels the dialog.
     input.addEventListener('cancel', () => resolve(null));
     // Show the picker.
+    if ('showPicker' in HTMLInputElement.prototype) {
+      input.showPicker();
+    } else {
+      input.click();
+    }
+  });
+}
+
+export async function openDirectory(): Promise<File[] | null> {
+  const supportsFileSystemAccess = canUseFileSystemAccessAPI(
+    'showDirectoryPicker'
+  );
+
+  if (supportsFileSystemAccess && window.showDirectoryPicker) {
+    try {
+      const dirHandle = await window.showDirectoryPicker();
+      const files: File[] = [];
+
+      const readDirectory = async (
+        directoryHandle: FileSystemDirectoryHandle,
+        path: string
+      ) => {
+        for await (const handle of directoryHandle.values()) {
+          const relativePath = path ? `${path}/${handle.name}` : handle.name;
+          if (handle.kind === 'file') {
+            const fileHandle = handle as FileSystemFileHandle;
+            if (fileHandle.getFile) {
+              const file = await fileHandle.getFile();
+              Object.defineProperty(file, 'webkitRelativePath', {
+                value: relativePath,
+                writable: false,
+              });
+              files.push(file);
+            }
+          } else if (handle.kind === 'directory') {
+            await readDirectory(
+              handle as FileSystemDirectoryHandle,
+              relativePath
+            );
+          }
+        }
+      };
+
+      await readDirectory(dirHandle, '');
+      return files;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  }
+
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.classList.add('affine-upload-input');
+    input.style.display = 'none';
+    input.type = 'file';
+
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+
+    document.body.append(input);
+
+    input.addEventListener('change', () => {
+      input.remove();
+      resolve(input.files ? Array.from(input.files) : null);
+    });
+
+    input.addEventListener('cancel', () => resolve(null));
+
     if ('showPicker' in HTMLInputElement.prototype) {
       input.showPicker();
     } else {

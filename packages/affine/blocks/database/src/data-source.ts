@@ -135,14 +135,10 @@ export class DatabaseBlockDataSource extends DataSourceBase {
 
   override featureFlags$: ReadonlySignal<DatabaseFlags> = computed(() => {
     const featureFlagService = this.doc.get(FeatureFlagService);
-    const enableNumberFormat = featureFlagService.getFlag(
-      'enable_database_number_formatting'
-    );
     const enableTableVirtualScroll = featureFlagService.getFlag(
       'enable_table_virtual_scroll'
     );
     return {
-      enable_number_formatting: enableNumberFormat ?? false,
       enable_table_virtual_scroll: enableTableVirtualScroll ?? false,
     };
   });
@@ -164,8 +160,10 @@ export class DatabaseBlockDataSource extends DataSourceBase {
   readonly$: ReadonlySignal<boolean> = computed(() => {
     return (
       this._model.store.readonly ||
-      // TODO(@L-Sun): use block level readonly
-      IS_MOBILE
+      (IS_MOBILE &&
+        !this._model.store.provider
+          .get(FeatureFlagService)
+          .getFlag('enable_mobile_database_editing'))
     );
   });
 

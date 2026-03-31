@@ -2,8 +2,11 @@ import { getInlineEditorByModel } from '@blocksuite/affine-rich-text';
 import type { AffineInlineEditor } from '@blocksuite/affine-shared/types';
 import { DisposableGroup } from '@blocksuite/global/disposable';
 import { IS_ANDROID } from '@blocksuite/global/env';
-import type { UIEventStateContext } from '@blocksuite/std';
-import { TextSelection, WidgetComponent } from '@blocksuite/std';
+import {
+  TextSelection,
+  type UIEventStateContext,
+  WidgetComponent,
+} from '@blocksuite/std';
 import { InlineEditor } from '@blocksuite/std/inline';
 import debounce from 'lodash-es/debounce';
 
@@ -161,26 +164,37 @@ export class AffineSlashMenuWidget extends WidgetComponent {
     this._handleInput(inlineEditor, true);
   };
 
-  private readonly _onKeyDown = (ctx: UIEventStateContext) => {
-    const eventState = ctx.get('keyboardState');
-    const event = eventState.raw;
+  private readonly _onBeforeInput = (ctx: UIEventStateContext) => {
+    const event = ctx.get('defaultState').event;
+    if (!(event instanceof InputEvent)) return;
 
-    const key = event.key;
+    // Skip non-character inputs and IME composition (handled by _onCompositionEnd)
+    if (event.data === null || event.isComposing) return;
 
-    // Fix for Android: Skip isComposing check as Android keyboards 
-    // incorrectly set isComposing=true for simple characters like '/'
-    if (event.isComposing && !IS_ANDROID) return;
-    if (key !== AFFINE_SLASH_MENU_TRIGGER_KEY) return;
+    // Quick check: only proceed if the input contains the trigger key
+    if (!event.data.includes(AFFINE_SLASH_MENU_TRIGGER_KEY)) return;
 
     const inlineEditor = this._getInlineEditor(event);
     if (!inlineEditor) return;
 
-    this._handleInput(inlineEditor, false);
+    // For Android, be more aggressive since keydown events may not fire
+    if (IS_ANDROID) {
+      setTimeout(() => {
+        this._handleInput(inlineEditor, false);
+      }, 1);
+      this._handleInput(inlineEditor, false);
+      return;
+    }
+
+    // Wait for the input to be processed, then handle it
+    // Pass true because after waitForUpdate(), the range is already synced
+    inlineEditor
+      .waitForUpdate()
+      .then(() => {
+        this._handleInput(inlineEditor, true);
+      })
+      .catch(console.error);
   };
-
-
-
-
 
   get config() {
     return this.std.get(SlashMenuExtension).config;
@@ -190,38 +204,10 @@ export class AffineSlashMenuWidget extends WidgetComponent {
   // This is a temporary way for patching the slash menu config
   configItemTransform: (item: SlashMenuItem) => SlashMenuItem = item => item;
 
-  private readonly _onBeforeInput = (ctx: UIEventStateContext) => {
-    const event = ctx.get('defaultState').event as InputEvent;
-
-    // Handle Android keyboards that might not trigger keydown events properly
-    if (event.data !== AFFINE_SLASH_MENU_TRIGGER_KEY) return;
-
-    // For Android, be more aggressive
-    if (IS_ANDROID) {
-      // Don't prevent default - let the character be typed first
-      const inlineEditor = this._getInlineEditor(event);
-      if (inlineEditor) {
-        // Very short delay to let the character appear in DOM
-        setTimeout(() => {
-          this._handleInput(inlineEditor, false);
-        }, 1);
-        
-        // Also try immediate trigger without waiting for DOM update
-        this._handleInput(inlineEditor, false);
-        return;
-      }
-    }
-
-    const inlineEditor = this._getInlineEditor(event);
-    if (!inlineEditor) return;
-
-    this._handleInput(inlineEditor, false);
-  };
-
   override connectedCallback() {
     super.connectedCallback();
 
-    // Add beforeInput for Android compatibility  
+    // Add beforeInput for Android compatibility
     this.handleEvent('beforeInput', this._onBeforeInput);
     this.handleEvent('keyDown', this._onKeyDown);
     this.handleEvent('compositionEnd', this._onCompositionEnd);

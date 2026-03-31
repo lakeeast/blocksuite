@@ -2,13 +2,16 @@ import {
   convertToDatabase,
   DATABASE_CONVERT_WHITE_LIST,
 } from '@blocksuite/affine-block-database';
+// import {
+//   convertSelectedBlocksToLinkedDoc,
+//   getTitleFromSelectedModels,
+//   notifyDocCreated,
+//   promptDocTitle,
+// } from '@blocksuite/affine-block-embed';
 import {
-  convertSelectedBlocksToLinkedDoc,
-  getTitleFromSelectedModels,
-  notifyDocCreated,
-  promptDocTitle,
-} from '@blocksuite/affine-block-embed';
-import { updateBlockType } from '@blocksuite/affine-block-note';
+  updateBlockAlign,
+  updateBlockType,
+} from '@blocksuite/affine-block-note';
 import type { HighlightType } from '@blocksuite/affine-components/highlight-dropdown-menu';
 import { toast } from '@blocksuite/affine-components/toast';
 import { EditorChevronDown } from '@blocksuite/affine-components/toolbar';
@@ -21,10 +24,12 @@ import {
   textFormatConfigs,
 } from '@blocksuite/affine-inline-preset';
 import {
-  EmbedLinkedDocBlockSchema,
-  EmbedSyncedDocBlockSchema,
+  type TextAlign,
 } from '@blocksuite/affine-model';
-import { textConversionConfigs } from '@blocksuite/affine-rich-text';
+import {
+  textAlignConfigs,
+  textConversionConfigs,
+} from '@blocksuite/affine-rich-text';
 import {
   copySelectedModelsCommand,
   deleteSelectedModelsCommand,
@@ -46,20 +51,19 @@ import {
   ActionPlacement,
   blockCommentToolbarButton,
 } from '@blocksuite/affine-shared/services';
+import { getMostCommonValue } from '@blocksuite/affine-shared/utils';
 import { tableViewMeta } from '@blocksuite/data-view/view-presets';
 import {
   CopyIcon,
   DatabaseTableViewIcon,
   DeleteIcon,
   DuplicateIcon,
-  LinkedPageIcon,
 } from '@blocksuite/icons/lit';
 import {
   type BlockComponent,
   BlockSelection,
-  BlockViewIdentifier,
 } from '@blocksuite/std';
-import { toDraftModel } from '@blocksuite/store';
+// import { toDraftModel } from '@blocksuite/store';
 import { html } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 
@@ -118,6 +122,64 @@ const conversionsActionGroup = {
                   aria-label=${name}
                   ?data-selected=${conversion.name === name}
                   @click=${() => update(flavour, type)}
+                >
+                  ${icon}<span class="label">${name}</span>
+                </editor-menu-action>
+              `
+            )}
+          </div>
+        </editor-menu-button>
+      `,
+    };
+  },
+} as const satisfies ToolbarActionGenerator;
+
+const alignActionGroup = {
+  id: 'b.align',
+  when: ({ chain }) => isFormatSupported(chain).run()[0],
+  generate({ chain }) {
+    const [ok, { selectedModels = [] }] = chain
+      .tryAll(chain => [
+        chain.pipe(getTextSelectionCommand),
+        chain.pipe(getBlockSelectionsCommand),
+      ])
+      .pipe(getSelectedModelsCommand, { types: ['text', 'block'] })
+      .run();
+    if (!ok) return null;
+
+    const alignment =
+      textAlignConfigs.find(
+        ({ textAlign }) =>
+          textAlign ===
+          getMostCommonValue(
+            selectedModels.map(
+              ({ props }) => props as { textAlign?: TextAlign }
+            ),
+            'textAlign'
+          )
+      ) ?? textAlignConfigs[0];
+    const update = (textAlign: TextAlign) => {
+      chain.pipe(updateBlockAlign, { textAlign }).run();
+    };
+
+    return {
+      content: html`
+        <editor-menu-button
+          .contentPadding="${'8px'}"
+          .button=${html`
+            <editor-icon-button aria-label="Align" .tooltip="${'Align'}">
+              ${alignment.icon} ${EditorChevronDown}
+            </editor-icon-button>
+          `}
+        >
+          <div data-size="large" data-orientation="vertical">
+            ${repeat(
+              textAlignConfigs,
+              item => item.name,
+              ({ textAlign, name, icon }) => html`
+                <editor-menu-action
+                  aria-label=${name}
+                  @click=${() => update(textAlign)}
                 >
                   ${icon}<span class="label">${name}</span>
                 </editor-menu-action>
@@ -218,79 +280,13 @@ const turnIntoDatabase = {
   },
 } as const satisfies ToolbarAction;
 
-const turnIntoLinkedDoc = {
-  id: 'f.convert-to-linked-doc',
-  tooltip: 'Create Linked Doc',
-  icon: LinkedPageIcon(),
-  when({ chain, std }) {
-    const supportFlavours = [
-      EmbedLinkedDocBlockSchema,
-      EmbedSyncedDocBlockSchema,
-    ].map(schema => schema.model.flavour);
-    if (
-      supportFlavours.some(
-        flavour => !std.getOptional(BlockViewIdentifier(flavour))
-      )
-    )
-      return false;
-
-    const [ok, { selectedModels }] = chain
-      .pipe(getSelectedModelsCommand, {
-        types: ['block', 'text'],
-        mode: 'flat',
-      })
-      .run();
-    return ok && Boolean(selectedModels?.length);
-  },
-  run({ chain, store, selection, std, track }) {
-    const [ok, { draftedModels, selectedModels }] = chain
-      .pipe(getSelectedModelsCommand, {
-        types: ['block', 'text'],
-        mode: 'flat',
-      })
-      .pipe(draftSelectedModelsCommand)
-      .run();
-    if (!ok || !draftedModels || !selectedModels?.length) return;
-
-    selection.clear();
-
-    const autofill = getTitleFromSelectedModels(
-      selectedModels.map(toDraftModel)
-    );
-    promptDocTitle(std, autofill)
-      .then(async title => {
-        if (title === null) return;
-        await convertSelectedBlocksToLinkedDoc(
-          std,
-          store,
-          draftedModels,
-          title
-        );
-        notifyDocCreated(std);
-
-        track('DocCreated', {
-          segment: 'doc',
-          page: 'doc editor',
-          module: 'toolbar',
-          control: 'create linked doc',
-          type: 'embed-linked-doc',
-        });
-
-        track('LinkedDocCreated', {
-          segment: 'doc',
-          page: 'doc editor',
-          module: 'toolbar',
-          control: 'create linked doc',
-          type: 'embed-linked-doc',
-        });
-      })
-      .catch(console.error);
-  },
-} as const satisfies ToolbarAction;
+// turnIntoLinkedDoc is disabled - commented out to avoid unused variable errors
+// const turnIntoLinkedDoc = { ... } as const satisfies ToolbarAction;
 
 export const builtinToolbarConfig = {
   actions: [
     conversionsActionGroup,
+    alignActionGroup,
     inlineTextActionGroup,
     highlightActionGroup,
     turnIntoDatabase,

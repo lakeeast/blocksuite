@@ -4,8 +4,6 @@ import {
 } from '@blocksuite/affine-ext-loader';
 
 import { effects } from './effects';
-import { TemplateTool } from './template-tool';
-import { templateSeniorTool } from './toolbar/senior-tool';
 
 export class TemplateViewExtension extends ViewExtensionProvider {
   override name = 'affine-template-view';
@@ -15,12 +13,11 @@ export class TemplateViewExtension extends ViewExtensionProvider {
     effects();
   }
 
-  override setup(context: ViewExtensionContext) {
+  override setup(_context: ViewExtensionContext) {
     /*
-    super.setup(context);
-    if (this.isEdgeless(context.scope)) {
-      context.register(TemplateTool);
-      context.register(templateSeniorTool);
+    super.setup(_context);
+    if (this.isEdgeless(_context.scope)) {
+      // TemplateTool and templateSeniorTool registration disabled
     }
     */
   }
