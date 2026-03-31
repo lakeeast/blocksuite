@@ -12,6 +12,7 @@ import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/tab/tab.js';
 import '@shoelace-style/shoelace/dist/components/tab-group/tab-group.js';
 import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
+import '@shoelace-style/shoelace/dist/components/progress-ring/progress-ring.js';
 import '@shoelace-style/shoelace/dist/themes/light.css';
 import '@shoelace-style/shoelace/dist/themes/dark.css';
 import './left-side-panel.js';
@@ -50,7 +51,10 @@ import { ShadowlessElement } from '@blocksuite/affine/std';
 import { GfxControllerIdentifier } from '@blocksuite/affine/std/gfx';
 import {
   type DeltaInsert,
+  type DocSnapshot,
+  getAssetName,
   Text,
+  Transformer,
   type Workspace,
 } from '@blocksuite/affine/store';
 import {
@@ -61,15 +65,16 @@ import {
   NotionHtmlTransformer,
   ZipTransformer,
 } from '@blocksuite/affine/widgets/linked-doc';
-import { NotionHtmlAdapter } from '@blocksuite/affine-shared/adapters';
+import { NotionHtmlAdapter, replaceIdMiddleware } from '@blocksuite/affine-shared/adapters';
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
 import { TestAffineEditorContainer } from '@blocksuite/integration-test';
 import type { SlDropdown } from '@shoelace-style/shoelace';
-import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
+import { registerIconLibrary } from '@shoelace-style/shoelace/dist/utilities/icon-library.js';
 import { css, html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import * as lz from 'lz-string';
 import type { Pane } from 'tweakpane';
+import JSZip from 'jszip';
 
 import type { CommentPanel } from '../../comment/index.js';
 import { createTestEditor } from '../../starter/utils/extensions.js';
@@ -80,10 +85,25 @@ import type { CustomOutlinePanel } from './custom-outline-panel.js';
 import type { CustomOutlineViewer } from './custom-outline-viewer.js';
 import type { DocsPanel } from './docs-panel.js';
 import type { LeftSidePanel } from './left-side-panel.js';
+import { StorageManager } from '../storage/storage-manager';
+import { Zip } from '../../../../affine/widgets/linked-doc/src/transformers/utils.js';
+import { AttachmentBlockComponent } from '@blocksuite/affine-block-attachment';
+import {
+  toggleSubscript,
+  toggleSuperscript,
+} from '@blocksuite/affine-inline-preset';
+import type { TestWorkspace } from '../../../../framework/store/src/test/test-workspace.js';
+import { BehaviorSubject } from 'rxjs';
+declare var decoder: any;
 
-const basePath =
-  'https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.11.2/dist';
-setBasePath(basePath);
+// Register a local icon library using assets from your public directory
+// This assumes you've copied icon assets to /assets/icons/ in your build process
+registerIconLibrary('default', {
+  resolver: name => {
+    return `/block/assets/icons/${name}.svg`;
+  },
+  mutator: svg => svg.setAttribute('fill', 'currentColor')
+});
 
 const OTHER_CSS_VARIABLES = StyleVariables.filter(
   variable =>
@@ -184,9 +204,17 @@ type AdapterFactoryIdentifier =
 
 interface AdapterConfig {
   identifier: AdapterFactoryIdentifier;
-  fileExtension: string; // file extension need to be lower case with dot prefix, e.g. '.md', '.txt', '.html'
+  fileExtension: string;
   contentType: string;
   indexFileName: string;
+}
+
+interface ReadCredentials {
+  storageType: 'aws' | 'oss';
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  bucket?: string;
+  key?: string;
 }
 
 @customElement('starter-debug-menu')
@@ -199,6 +227,11 @@ export class StarterDebugMenu extends ShadowlessElement {
 
     .dg.ac {
       z-index: 1001 !important;
+    }
+
+    sl-progress-ring.save-progress {
+      --size: 28px;
+      --track-width: 3px;
     }
   `;
 
@@ -295,9 +328,6 @@ export class StarterDebugMenu extends ShadowlessElement {
     });
   }
 
-  /**
-   * Export markdown file using markdown adapter factory extension
-   */
   private async _exportMarkDown() {
     await this._exportFile({
       identifier: MarkdownAdapterFactoryIdentifier,
@@ -311,9 +341,6 @@ export class StarterDebugMenu extends ShadowlessElement {
     this.editor.std.get(ExportManager).exportPdf().catch(console.error);
   }
 
-  /**
-   * Export plain text file using plain text adapter factory extension
-   */
   private async _exportPlainText() {
     await this._exportFile({
       identifier: PlainTextAdapterFactoryIdentifier,
@@ -368,7 +395,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         `Successfully imported ${pageIds.length} HTML files.`
       );
     } catch (error) {
-      console.error(' Import HTML files failed:', error);
+      console.error('Import HTML files failed:', error);
     }
   }
 
@@ -419,7 +446,7 @@ export class StarterDebugMenu extends ShadowlessElement {
         `Successfully imported ${pageIds.length} markdown files.`
       );
     } catch (error) {
-      console.error(' Import markdown files failed:', error);
+      console.error('Import markdown files failed:', error);
     }
   }
 
@@ -515,7 +542,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                   } as DeltaInsert<AffineTextAttributes>,
                 ]),
               },
-              noteBlock[0].id
+              noteBlock[0]?.id
             );
           }
         }
@@ -557,6 +584,502 @@ export class StarterDebugMenu extends ShadowlessElement {
 
   private _print() {
     printToPdf().catch(console.error);
+  }
+
+  private async _saveData() {
+    try {
+      window.parent.postMessage(
+        {
+          type: 'request-save',
+          documentType: 'doc',
+        },
+        '*'
+      );
+      if (this.editor.host) {
+        toast(this.editor.host, '数据上传中，请稍候。');
+      }
+    } catch (error) {
+      console.error('Failed to request save:', error);
+      if (this.editor.host) {
+        toast(this.editor.host, '数据上传失败。');
+      }
+    }
+  }
+
+  private _handleSaveWithToken = async (saveCredentials: unknown) => {
+    this._isSaving = true;
+    this._saveProgress = 0;
+    this.requestUpdate();
+
+    try {
+      if (!this.collection || !this.doc || !this.editor || !this.editor.std) {
+        throw new Error('Workspace, document, or editor is undefined');
+      }
+
+      const credential = saveCredentials as any;
+      if (!credential.storageType) {
+        throw new Error('Invalid credentials: storageType is missing');
+      }
+
+      const storage = StorageManager.CreateStorage(credential.storageType);
+      storage.initialize(credential);
+
+      const doc = this.doc;
+      const blobSync = this.editor.std.store.blobSync;
+
+      let totalBytes = 0;
+      let uploadedBytes = 0;
+
+      // Fetch previous manifest to check for unchanged attachments
+      let previousManifest: { attachments: { sourceId: string; name: string; type: string; cloudPath: string }[] } = {
+        attachments: [],
+      };
+      const snapshotName = 'affine.zip';
+      const fileUrl = storage.getFileUrl(snapshotName);
+      if (fileUrl) {
+        try {
+          const response = await fetch(fileUrl);
+          if (response.ok) {
+            const snapshotBlob = await response.blob();
+            const zip = await JSZip.loadAsync(snapshotBlob);
+            const manifestFile = zip.file('manifest.json');
+            if (manifestFile) {
+              previousManifest = JSON.parse(await manifestFile.async('string'));
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to fetch previous manifest:', error);
+        }
+      }
+
+      // Access TestWorkspace to get studyManagerRegistry
+      const workspace = this.collection as TestWorkspace;
+      if (!workspace || !workspace.studyManagerRegistry) {
+        console.error('TestWorkspace or studyManagerRegistry not found');
+        // Proceed with saving the snapshot, but DICOM studies won't be saved
+      }
+
+      // Collect all asset-referencing blocks (attachments and images)
+      const assetBlocks = [
+        ...doc.getBlocksByFlavour('affine:attachment'),
+        ...doc.getBlocksByFlavour('affine:image')
+      ];
+
+      // Map of sourceId to {blob, name, type} for general assets
+      const assets = new Map<string, { blob: Blob; name: string; type: string }>();
+
+      // Pre-calculate total bytes for general assets and populate assets map
+      for (const block of assetBlocks) {
+        const { sourceId } = block.model.props;
+        if (!sourceId) continue;
+        const blob = await blobSync.get(sourceId);
+        if (!blob) continue;
+
+        // Derive name (attachments have explicit name; images fallback to sourceId or blob.name)
+        const name = 'name' in block.model.props ? block.model.props.name as string : (blob instanceof File ? blob.name : sourceId);
+        const type = blob.type || ('type' in block.model.props ? block.model.props.type as string : '');
+
+        const cloudPath = `assets/${name}`;
+        const prevAttachment = previousManifest.attachments.find(
+          att => att.sourceId === sourceId && att.name === name && att.type === type && att.cloudPath === cloudPath
+        );
+        if (!prevAttachment || !storage.getFileUrl(cloudPath)) {
+          totalBytes += blob.size;
+        }
+
+        assets.set(sourceId, { blob, name, type });
+      }
+
+      // Pre-calculate total bytes for DICOM studies
+      const studyProgressInfo = new Map<string, { totalFiles: number; totalBytes: number }>(); // guid -> info
+      if (workspace?.studyManagerRegistry) {
+        for (const block of assetBlocks) {
+          const { name, type } = assets.get(block.model.props.sourceId) || { name: '', type: '' };
+          if (type === 'application/dicomdir' && name.endsWith('.dicomdir')) {
+            const guid = name.replace('.dicomdir', '');
+            const studyManager = workspace.studyManagerRegistry.get(guid);
+            if (studyManager) {
+              const blobs = studyManager.getBlobs(); // Assume returns array of blobs
+              const totalFiles = blobs.length;
+              const totalBytesForStudy = blobs.reduce((sum, blob) => sum + blob.size, 0);
+              studyProgressInfo.set(guid, { totalFiles, totalBytes: totalBytesForStudy });
+              totalBytes += totalBytesForStudy;
+            }
+          }
+        }
+      }
+
+      this._saveProgress = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : 0;
+      this.requestUpdate();
+
+      // Save all DICOM studyManagers
+      if (workspace?.studyManagerRegistry) {
+        for (const block of assetBlocks) {
+          const { name, type } = assets.get(block.model.props.sourceId) || { name: '', type: '' };
+          if (type === 'application/dicomdir' && name.endsWith('.dicomdir')) {
+            const guid = name.replace('.dicomdir', '');
+            const studyManager = workspace.studyManagerRegistry.get(guid);
+            if (studyManager) {
+              try {
+                const cloudPath = `assets/${name}`;
+                const abortController = new AbortController();
+                const signal = abortController.signal;
+
+                const { totalFiles, totalBytes: totalBytesForStudy } = studyProgressInfo.get(guid) || { totalFiles: 0, totalBytes: 0 };
+
+                const uploadedImagesSubject = new BehaviorSubject<number>(0); // uploaded files count
+                let studyUploadedBytes = 0;
+                uploadedImagesSubject.subscribe(newValue => {
+                  const newStudyUploadedBytes = totalFiles > 0 ? (newValue / totalFiles) * totalBytesForStudy : 0;
+                  uploadedBytes += newStudyUploadedBytes - studyUploadedBytes;
+                  studyUploadedBytes = newStudyUploadedBytes;
+                  this._saveProgress = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : 0;
+                  this.requestUpdate();
+                });
+
+                await decoder.CoreApi.saveStudy(studyManager, storage, cloudPath, signal, uploadedImagesSubject);
+              } catch (error) {
+                console.error(`Failed to save studyManager ${guid}:`, error);
+                if (this.editor.host) {
+                  toast(this.editor.host, `Failed to save DICOM study for ${name}`);
+                }
+              }
+            } else {
+              console.warn(`No studyManager found for guid ${guid}`);
+            }
+          }
+        }
+      }
+
+      // Create document snapshot (unchanged)
+      const docs = [doc];
+      const zip = new Zip();
+      const job = new Transformer({
+        schema: this.editor.doc.schema,
+        blobCRUD: this.collection.blobSync,
+        docCRUD: {
+          create: (id: string) => this.collection.createDoc(id).getStore({ id }),
+          get: (id: string) => this.collection.getDoc(id)?.getStore({ id }) ?? null,
+          delete: (id: string) => this.collection.removeDoc(id),
+        },
+        middlewares: [
+          replaceIdMiddleware(this.collection.idGenerator),
+          titleMiddleware(this.collection.meta.docMetas),
+        ],
+      });
+
+      const snapshots = await Promise.all(docs.map(job.docToSnapshot));
+      await Promise.all(
+        snapshots
+          .filter((snapshot): snapshot is DocSnapshot => !!snapshot)
+          .map(async snapshot => {
+            const snapshotName = `${snapshot.meta.title || 'untitled'}.snapshot.json`;
+            await zip.file(snapshotName, JSON.stringify(snapshot, null, 2));
+          })
+      );
+
+      // Upload new or modified asset blobs and build manifest
+      const uploadedBlobs = new Set<string>();
+      const manifest = {
+        attachments: [],
+      };
+
+      for (const [sourceId, { blob, name, type }] of assets.entries()) {
+        const cloudPath = `assets/${name}`;
+
+        const prevAttachment = previousManifest.attachments.find(
+          att => att.sourceId === sourceId && att.name === name && att.type === type && att.cloudPath === cloudPath
+        );
+        let cloudUrl = prevAttachment ? storage.getFileUrl(cloudPath) : undefined;
+
+        if (!cloudUrl) {
+          const fileUploadedBytesSubject = new BehaviorSubject<number>(0);
+          let prevFileUploaded = 0;
+          fileUploadedBytesSubject.subscribe(newValue => {
+            uploadedBytes += newValue - prevFileUploaded;
+            prevFileUploaded = newValue;
+            this._saveProgress = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : 0;
+            this.requestUpdate();
+          });
+
+          cloudUrl = await storage.uploadFile(blob, cloudPath, fileUploadedBytesSubject);
+          uploadedBlobs.add(sourceId);
+        }
+
+        manifest.attachments.push({
+          sourceId,
+          name,
+          type,
+          cloudPath,
+        });
+      }
+
+      await zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+      const downloadBlob = await zip.generate();
+      await storage.uploadFile(downloadBlob, snapshotName, null);
+
+      window.parent.postMessage(
+        {
+          type: 'save-complete',
+          documentType: 'doc',
+        },
+        '*'
+      );
+
+      if (this.editor.host) {
+        toast(this.editor.host, '上传已完成。');
+      }
+    } catch (error) {
+      console.error('Failed to save snapshot:', error);
+      if (this.editor.host) {
+        toast(this.editor.host, `Failed to save snapshot: ${error.message}`);
+      }
+    } finally {
+      this._isSaving = false;
+      this.requestUpdate();
+    }
+  };
+
+  private _loadSnapshotWithToken = async (readCredentials: unknown) => {
+    try {
+      if (!this.collection || !this.editor || !this.editor.std) {
+        throw new Error('Workspace, document, or editor is undefined');
+      }
+
+      const credential = readCredentials as ReadCredentials;
+      if (!credential.storageType) {
+        throw new Error('Invalid credentials: storageType is missing');
+      }
+
+      const storage = StorageManager.CreateStorage(credential.storageType);
+      storage.initialize(credential);
+
+      const fileFullPath = 'affine.zip';
+      const fileUrl = storage.getFileUrl(fileFullPath);
+      const urlParams = new URLSearchParams(window.location.search);
+      const isReadonly = urlParams.get('readonly') === 'true';
+      let response: Response | undefined;
+      try {
+        response = await fetch(fileUrl);
+      } catch (err) {
+        response = undefined;
+      }
+      if (response && response.ok) {
+        // Normal case: affine.zip exists, load as before
+        const snapshotBlob = await response.blob();
+
+        // Clear existing documents from the collection
+        Array.from(this.collection.docs.keys()).forEach(id => {
+          this.collection.removeDoc(id);
+        });
+
+        // Import documents into the collection
+        const docs = await ZipTransformer.importDocs(
+          this.collection,
+          this.editor.doc.schema,
+          snapshotBlob
+        );
+
+        if (docs.length === 0) {
+          throw new Error('No documents found in snapshot');
+        }
+
+        // Load manifest and fetch attachments
+        const workspace = this.collection as TestWorkspace;
+        if (!workspace || !workspace.studyManagerRegistry) {
+          console.error('TestWorkspace or studyManagerRegistry not found');
+          // Proceed with loading document, but DICOM studies won't be loaded
+        }
+
+        // Load manifest and pre-load image blobs
+        const zip = await JSZip.loadAsync(snapshotBlob);
+        const manifestFile = zip.file('manifest.json');
+        const blobSync = this.editor.std.store.blobSync;
+        if (manifestFile) {
+          const manifest = JSON.parse(await manifestFile.async('string')) as {
+            attachments: { sourceId: string; cloudPath: string; name: string; type: string }[];
+          };
+          console.log('Loaded manifest with attachments:', manifest.attachments);
+
+          for (const attachment of manifest.attachments) {
+            const { sourceId, cloudPath, name, type } = attachment;
+            console.log('Processing attachment:', { sourceId, cloudPath, name, type });
+
+            let localBlob = await blobSync.get(sourceId);
+            if (!localBlob) { // Pre-load only images
+              const fileUrl = storage.getFileUrl(cloudPath);
+              console.log('Fetching blob from:', fileUrl);
+              if (fileUrl) {
+                try {
+                  const blobResponse = await fetch(fileUrl);
+                  if (blobResponse.ok) {
+                    const blob = await blobResponse.blob();
+                    await blobSync.set(sourceId, new File([blob], name, { type }));
+                    localBlob = await blobSync.get(sourceId);
+                    if (localBlob) {
+                      console.log('Blob stored successfully:', sourceId, 'size:', blob.size);
+                    } else {
+                      throw new Error(`Failed to verify blob storage for sourceId: ${sourceId}`);
+                    }
+                  } else {
+                    console.error(`Failed to fetch blob for ${sourceId}: ${blobResponse.statusText}`);
+                    if (this.editor.host) {
+                      toast(this.editor.host, `Failed to fetch blob for ${name}`);
+                    }
+                  }
+                } catch (error) {
+                  console.error(`Failed to fetch blob for ${sourceId}:`, error);
+                  if (this.editor.host) {
+                    toast(this.editor.host, `Failed to fetch blob for ${name}`);
+                  }
+                }
+              }
+            } else if (localBlob) {
+              console.log('Blob already exists locally:', sourceId, 'size:', localBlob.size);
+            }
+
+            // Reconstruct studyManager for DICOM attachments
+            if (type === 'application/dicomdir' && name.endsWith('.dicomdir') && workspace?.studyManagerRegistry) {
+              const guid = name.replace('.dicomdir', '');
+              try {
+                const studyManager = decoder.CoreApi.createStudy();
+                studyManager.setAllowDownload(true);
+                await decoder.CoreApi.populateStudy(studyManager, storage, cloudPath);
+                workspace.studyManagerRegistry.set(guid, studyManager);
+                console.log(`Recreated studyManager for guid ${guid} using cloudPath ${cloudPath}`);
+              } catch (error) {
+                console.error(`Failed to recreate studyManager for guid ${guid}:`, error);
+                if (this.editor.host) {
+                  toast(this.editor.host, `Failed to load DICOM study for ${name}`);
+                }
+              }
+            }
+          }
+        } else {
+          console.warn('No manifest.json found in snapshot');
+          if (this.editor.host) {
+            toast(this.editor.host, 'No manifest found; attachments not loaded');
+          }
+        }
+
+        const newDoc = docs[0]; // Adjust this if you need a specific document
+        if (!newDoc) {
+          throw new Error('Failed to load document from snapshot');
+        }
+
+        if (!newDoc.loaded) {
+          newDoc.load(); // Ensure the document is loaded
+        }
+
+        if (credential.allowWrite == false) {
+          newDoc.readonly = true;
+          this.readonly = true; // Update reactive property
+        } else {
+          newDoc.readonly = false;
+          this.readonly = false; // Update reactive property
+        }
+
+        // Update the editor's document
+        this.editor.doc = newDoc;
+        newDoc.history.store.resetHistory();
+        this._rebindHistorySubscription(this.doc);
+        // Update the editor's mode (if necessary)
+        const modeService = this.editor.std.provider.get(DocModeProvider);
+        this.editor.mode = modeService.getPrimaryMode(newDoc.id);
+
+        // Ensure attachment blocks are initialized
+        const attachmentBlocks = newDoc.getBlocksByFlavour('affine:attachment');
+        console.log('Attachment blocks found:', attachmentBlocks.length);
+        for (const block of attachmentBlocks) {
+          const blockComponent = this.editor.std.store.getBlock(block.id);
+          if (blockComponent && blockComponent instanceof AttachmentBlockComponent) {
+            console.log('Initialized attachment block:', block.id, 'sourceId:', block.model.props.sourceId);
+          }
+        }
+
+        // Notify the editor's host to re-render
+        if (this.editor.host) {
+          this.editor.host.requestUpdate();
+          toast(this.editor.host, 'Snapshot and DICOM studies loaded successfully.');
+        }
+
+        window.parent.postMessage(
+          {
+            type: 'load-complete',
+            documentId: newDoc.id,
+          },
+          '*'
+        );
+      } else if (isReadonly) {
+        // Special case: affine.zip missing and readonly=true
+        // Do not attempt to load or fake a document
+        // Set UI to readonly and show 'no document' state
+        this.readonly = true;
+        if (this.editor.doc) {
+          this.editor.doc.readonly = true;
+        }
+        if (this.editor.host) {
+          this.editor.host.requestUpdate();
+          toast(this.editor.host, '数据加载完成。');
+        }
+        window.parent.postMessage(
+          {
+            type: 'load-complete',
+            documentId: undefined,
+          },
+          '*'
+        );
+        return;
+      } else {
+        throw new Error(`无法加载数据: ${fileFullPath}`);
+      }
+    } catch (error) {
+      console.error('Failed to load snapshot:', error);
+      window.parent.postMessage(
+        {
+          type: 'load-failed',
+          documentType: 'doc',
+        },
+        '*'
+      );
+      if (this.editor.host) {
+        toast(this.editor.host, `数据加载完成。`);
+      }
+    }
+  };
+
+  private async cancelChanges() {
+    try {
+      if (!this.doc || !this.editor || !this.editor.std) {
+        throw new Error('Document or editor is undefined');
+      }
+
+      console.log('Canceling changes, canUndo:', this.doc.canUndo);
+      if (this.doc.canUndo) {
+        this.doc.undo();
+        console.log('Performed undo operation');
+        if (this.editor.host) {
+          toast(this.editor.host, 'Changes reverted successfully.');
+        }
+      } else {
+        console.log('No changes to undo');
+        if (this.editor.host) {
+          toast(this.editor.host, 'No changes to revert.');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to cancel changes:', error);
+      if (this.editor.host) {
+        toast(this.editor.host, 'Failed to revert changes.');
+      }
+    }
+  }
+
+  private _hasUndoableChanges(): boolean {
+    const canUndo = !!this.doc && this.doc.canUndo;
+    console.log('Checking hasUndoableChanges, canUndo:', canUndo);
+    return canUndo;
   }
 
   private _setThemeMode(dark: boolean) {
@@ -635,7 +1158,6 @@ export class StarterDebugMenu extends ShadowlessElement {
         'affine-editor-container'
       ).length;
       if (currentEditorCount === 1) {
-        // Add a second editor
         const newEditor = createTestEditor(this.doc, this.collection);
         app.append(newEditor);
         app.childNodes.forEach(child => {
@@ -645,7 +1167,6 @@ export class StarterDebugMenu extends ShadowlessElement {
         });
         (app as HTMLElement).style.display = 'flex';
       } else {
-        // Remove the second editor
         const secondEditor = app.querySelectorAll('affine-editor-container')[1];
         if (secondEditor) {
           secondEditor.remove();
@@ -678,9 +1199,7 @@ export class StarterDebugMenu extends ShadowlessElement {
     }
 
     this._showStyleDebugMenu = !this._showStyleDebugMenu;
-    this._showStyleDebugMenu
-      ? (this._styleMenu.hidden = false)
-      : (this._styleMenu.hidden = true);
+    this._styleMenu.hidden = !this._showStyleDebugMenu;
   }
 
   override connectedCallback() {
@@ -706,36 +1225,85 @@ export class StarterDebugMenu extends ShadowlessElement {
       }
     };
     readSelectionFromURL().catch(console.error);
-  }
 
-  override createRenderRoot() {
-    this._setThemeMode(this._dark);
-
-    const matchMedia = window.matchMedia('(prefers-color-scheme: dark)');
-    matchMedia.addEventListener('change', this._darkModeChange);
-
-    return this;
+    window.addEventListener('message', this._handleMessage.bind(this));
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
 
-    const matchMedia = window.matchMedia('(prefers-color-scheme: dark)');
+    const matchMedia = window.matchMedia('(prefers-color-scheme: dark');
     matchMedia.removeEventListener('change', this._darkModeChange);
+
+    window.removeEventListener('message', this._handleMessage.bind(this));
+  }
+
+  private _handleMessage(event: MessageEvent) {
+    console.log('Received message:', event.data, 'this._loadSnapshotWithToken exists:', !!this._loadSnapshotWithToken);
+    if (event.data.type === 'save' && event.data.saveCredentials) {
+      console.log('Calling _handleSaveWithToken');
+      this._handleSaveWithToken(event.data.saveCredentials);
+    } else if (event.data.type === 'load' && event.data.credential) {
+      console.log('Calling _loadSnapshotWithToken');
+      if (typeof this._loadSnapshotWithToken === 'function') {
+        this._loadSnapshotWithToken(event.data.credential);
+      } else {
+        console.error('_loadSnapshotWithToken is not a function');
+        if (this.editor.host) {
+          toast(this.editor.host, 'Failed to load snapshot: internal error');
+        }
+      }
+    }
+  }
+
+  private _rebindHistorySubscription(doc: any) {
+    doc.history.onUpdated.subscribe(() => {
+      this._canUndo = doc.canUndo;
+      this._canRedo = doc.canRedo;
+    });
+
+    doc.doc.yBlocks.doc.on('update', () => {
+      window.parent.postMessage(
+        {
+          type: 'content-changed',
+          documentId: doc.id,
+        },
+        '*'
+      );
+
+      console.log('Document updated, doc=' + doc.id);
+    });
+
   }
 
   override firstUpdated() {
-    this.doc.history.onUpdated.subscribe(() => {
-      this._canUndo = this.doc.canUndo;
-      this._canRedo = this.doc.canRedo;
-    });
+    this._rebindHistorySubscription(this.doc);
 
     this.editor.std.get(DocModeProvider).onPrimaryModeChange(() => {
       this.requestUpdate();
     }, this.editor.doc.id);
+
+    try {
+      window.parent.postMessage(
+        {
+          type: 'created',
+          documentId: this.doc.id,
+        },
+        '*'
+      );
+      if (this.editor.host) {
+        toast(this.editor.host, '数据加载中，请稍候。');
+      }
+    } catch (error) {
+      console.error('Failed to send created message:', error);
+      if (this.editor.host) {
+        toast(this.editor.host, '数据加载失败。');
+      }
+    }
   }
 
   override render() {
+    console.log('Rendering toolbar, hasUndoableChanges:', this._hasUndoableChanges());
     return html`
       <style>
         .debug-menu {
@@ -746,7 +1314,7 @@ export class StarterDebugMenu extends ShadowlessElement {
           left: 0;
           width: 100%;
           overflow: auto;
-          z-index: 1000; /* for debug visibility */
+          z-index: 1000;
           pointer-events: none;
         }
 
@@ -782,180 +1350,112 @@ export class StarterDebugMenu extends ShadowlessElement {
       </style>
       <div class="debug-menu default">
         <div class="default-toolbar">
-          <!-- undo/redo group -->
-          <sl-button-group label="History">
-            <!-- undo -->
-            <sl-tooltip content="Undo" placement="bottom" hoist>
-              <sl-button
-                size="small"
-                .disabled="${!this._canUndo}"
-                @click="${() => this.doc.undo()}"
-              >
-                <sl-icon name="arrow-counterclockwise" label="Undo"></sl-icon>
-              </sl-button>
-            </sl-tooltip>
-            <!-- redo -->
-            <sl-tooltip content="Redo" placement="bottom" hoist>
-              <sl-button
-                size="small"
-                .disabled="${!this._canRedo}"
-                @click="${() => this.doc.redo()}"
-              >
-                <sl-icon name="arrow-clockwise" label="Redo"></sl-icon>
-              </sl-button>
-            </sl-tooltip>
-          </sl-button-group>
+                  ${!this.readonly ? html`
+                      <sl-button-group label="History">
+                          <sl-tooltip content="撤销" placement="bottom" hoist>
+                              <sl-button
+                                  size="small"
+                                  .disabled="${!this._canUndo}"
+                                  @click="${() => this.doc.undo()}"
+                              >
+                                  <sl-icon name="arrow-counterclockwise" label="Undo"></sl-icon>
+                              </sl-button>
+                          </sl-tooltip>
+                          <sl-tooltip content="重做" placement="bottom" hoist>
+                              <sl-button
+                                  size="small"
+                                  .disabled="${!this._canRedo}"
+                                  @click="${() => this.doc.redo()}"
+                              >
+                                  <sl-icon name="arrow-clockwise" label="Redo"></sl-icon>
+                              </sl-button>
+                          </sl-tooltip>
+                      </sl-button-group>
+                  ` : null}
+                  <sl-tooltip content="模式切换" placement="bottom" hoist>
+                      <sl-button size="small" @click="${this._switchEditorMode}">
+                          <sl-icon name="repeat"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
 
-          <!-- test operations -->
-          <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
-            <sl-button size="small" slot="trigger" caret>
-              Test Operations
-            </sl-button>
-            <sl-menu>
-              <sl-menu-item @click="${this._print}">Print</sl-menu-item>
-              <sl-menu-item>
-                Export
-                <sl-menu slot="submenu">
-                  <sl-menu-item @click="${this._exportMarkDown}">
-                    Export Markdown
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportHtml}">
-                    Export HTML
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportPlainText}">
-                    Export Plain Text
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportPdf}">
-                    Export PDF
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportPng}">
-                    Export PNG
-                  </sl-menu-item>
-                  <sl-menu-item @click="${this._exportSnapshot}">
-                    Export Snapshot
-                  </sl-menu-item>
-                </sl-menu>
-              </sl-menu-item>
-              <sl-menu-item>
-                Import
-                <sl-menu slot="submenu">
-                  <sl-menu-item @click="${this._importSnapshot}">
-                    Import Snapshot
-                  </sl-menu-item>
-                  <sl-menu-item>
-                    Import Notion HTML
-                    <sl-menu slot="submenu">
-                      <sl-menu-item @click="${this._importNotionHTML}">
-                        Single Notion HTML Page
-                      </sl-menu-item>
-                      <sl-menu-item @click="${this._importNotionHTMLZip}">
-                        Notion HTML Zip
-                      </sl-menu-item>
-                    </sl-menu>
-                  </sl-menu-item>
-                  <sl-menu-item>
-                    Import Markdown
-                    <sl-menu slot="submenu">
-                      <sl-menu-item @click="${this._importMarkdown}">
-                        Markdown Files
-                      </sl-menu-item>
-                      <sl-menu-item @click="${this._importMarkdownZip}">
-                        Markdown Zip
-                      </sl-menu-item>
-                    </sl-menu>
-                  </sl-menu-item>
-                  <sl-menu-item>
-                    Import HTML
-                    <sl-menu slot="submenu">
-                      <sl-menu-item @click="${this._importHTML}">
-                        HTML Files
-                      </sl-menu-item>
-                      <sl-menu-item @click="${this._importHTMLZip}">
-                        HTML Zip
-                      </sl-menu-item>
-                    </sl-menu>
-                  </sl-menu-item>
-                </sl-menu>
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleStyleDebugMenu}">
-                Toggle CSS Debug Menu
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleReadonly}">
-                Toggle Readonly
-              </sl-menu-item>
-              <sl-menu-item @click="${this._shareSelection}">
-                Share Selection
-              </sl-menu-item>
-              <sl-menu-item @click="${this._switchOffsetMode}">
-                Switch Offset Mode
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleOutlinePanel}">
-                Toggle Outline Panel
-              </sl-menu-item>
-              <sl-menu-item @click="${this._enableOutlineViewer}">
-                Enable Outline Viewer
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleFramePanel}">
-                Toggle Frame Panel
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleCommentPanel}">
-                Toggle Comment Panel
-              </sl-menu-item>
-              <sl-menu-item @click="${this._addNote}"> Add Note </sl-menu-item>
-              <sl-menu-item @click="${this._toggleMultipleEditors}">
-                Toggle Multiple Editors
-              </sl-menu-item>
-              <sl-menu-item @click="${this._toggleAdapterPanel}">
-                Toggle Adapter Panel
-              </sl-menu-item>
-            </sl-menu>
-          </sl-dropdown>
+                  ${!this.readonly && !this._isSaving ? html`
+                      <sl-tooltip content="保存" placement="bottom" hoist>
+                          <sl-button size="small" @click="${this._saveData}">
+                              <sl-icon name="floppy"></sl-icon>
+                          </sl-button>
+                      </sl-tooltip>
+                  ` : this._isSaving ? html`
+                      <sl-progress-ring class="save-progress" value="${this._saveProgress}"> ${Math.round(this._saveProgress)}</sl-progress-ring>
+                  ` : null}
+                  <!--
+                  ${!this.readonly && this._hasUndoableChanges() ? html`
+                      <sl-tooltip content="取消" placement="bottom" hoist>
+                          <sl-button size="small" @click="${this.cancelChanges}">
+                              <sl-icon name="x-circle"></sl-icon> 取消
+                          </sl-button>
+                      </sl-tooltip>
+                  ` : null}
+                  -->
+                  <sl-tooltip
+                      content="Toggle ${this._dark ? '浅色' : '深色'}主题"
+                      placement="bottom"
+                      hoist
+                  >
+                      <sl-button size="small" @click="${this._toggleDarkMode}">
+                          <sl-icon
+                              name="${this._dark ? 'moon' : 'brightness-high'}"
+                          ></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
 
-          <sl-tooltip content="Switch Editor" placement="bottom" hoist>
-            <sl-button size="small" @click="${this._switchEditorMode}">
-              <sl-icon name="repeat"></sl-icon>
-            </sl-button>
-          </sl-tooltip>
+                  <sl-tooltip
+                      content="演讲模式"
+                      placement="bottom"
+                      hoist
+                  >
+                      <sl-button size="small" @click="${this._present}">
+                          <sl-icon name="easel"></sl-icon>
+                      </sl-button>
+                  </sl-tooltip>
 
-          <sl-tooltip content="Clear Site Data" placement="bottom" hoist>
-            <sl-button size="small" @click="${this._clearSiteData}">
-              <sl-icon name="trash"></sl-icon>
-            </sl-button>
-          </sl-tooltip>
+                  ${!this.readonly ? html`
+                      <sl-button-group label="Text Format">
+                          <sl-tooltip content="上标 (Superscript)" placement="bottom" hoist>
+                              <sl-button
+                                  size="small"
+                                  @click="${() => this.editor.std.command.chain().pipe(toggleSuperscript).run()}"
+                              >
+                                  X<sup>2</sup>
+                              </sl-button>
+                          </sl-tooltip>
+                          <sl-tooltip content="下标 (Subscript)" placement="bottom" hoist>
+                              <sl-button
+                                  size="small"
+                                  @click="${() => this.editor.std.command.chain().pipe(toggleSubscript).run()}"
+                              >
+                                  X<sub>2</sub>
+                              </sl-button>
+                          </sl-tooltip>
+                      </sl-button-group>
+                  ` : null}
 
-          <sl-tooltip
-            content="Toggle ${this._dark ? 'Light' : 'Dark'} Mode"
-            placement="bottom"
-            hoist
-          >
-            <sl-button size="small" @click="${this._toggleDarkMode}">
-              <sl-icon
-                name="${this._dark ? 'moon' : 'brightness-high'}"
-              ></sl-icon>
-            </sl-button>
-          </sl-tooltip>
-
-          <sl-tooltip
-            content="Enter presentation mode"
-            placement="bottom"
-            hoist
-          >
-            <sl-button size="small" @click="${this._present}">
-              <sl-icon name="easel"></sl-icon>
-            </sl-button>
-          </sl-tooltip>
-
-          <sl-button
-            data-testid="docs-button"
-            size="small"
-            @click="${this._toggleDocsPanel}"
-            data-docs-panel-toggle
-          >
-            Docs
-          </sl-button>
-        </div>
-      </div>
-    `;
+                  <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
+                      <sl-button size="small" slot="trigger" caret>
+                          操作
+                      </sl-button>
+                      <sl-menu>
+                          <sl-menu-item @click="${this._print}">打印/导出PDF</sl-menu-item>
+                          <sl-menu-item @click="${this._toggleOutlinePanel}">
+                              大纲面板
+                          </sl-menu-item>
+                          <sl-menu-item @click="${this._enableOutlineViewer}">
+                              大纲提示
+                          </sl-menu-item>
+                      </sl-menu>
+                  </sl-dropdown>
+              </div>
+          </div>
+      `;
   }
 
   override update(changedProperties: Map<string, unknown>) {
@@ -964,18 +1464,17 @@ export class StarterDebugMenu extends ShadowlessElement {
       if (!appRoot) return;
       const style: Partial<CSSStyleDeclaration> = this._hasOffset
         ? {
-            margin: '60px 40px 240px 40px',
-            overflow: 'auto',
-            height: '400px',
-            boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.2)',
-          }
+          margin: '60px 40px 240px 40px',
+          overflow: 'auto',
+          height: '400px',
+          boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.2)',
+        }
         : {
-            margin: '0',
-            overflow: 'initial',
-            // edgeless needs the container height
-            height: '100%',
-            boxShadow: 'initial',
-          };
+          margin: '0',
+          overflow: 'initial',
+          height: '100%',
+          boxShadow: 'initial',
+        };
       Object.assign(appRoot.style, style);
     }
     super.update(changedProperties);
@@ -992,6 +1491,12 @@ export class StarterDebugMenu extends ShadowlessElement {
 
   @state()
   private accessor _hasOffset = false;
+
+  @state()
+  private accessor _isSaving = false;
+
+  @state()
+  private accessor _saveProgress = 0;
 
   @query('#block-type-dropdown')
   accessor blockTypeDropdown!: SlDropdown;
