@@ -88,6 +88,10 @@ import type { LeftSidePanel } from './left-side-panel.js';
 import { StorageManager } from '../storage/storage-manager';
 import { Zip } from '../../../../affine/widgets/linked-doc/src/transformers/utils.js';
 import { AttachmentBlockComponent } from '@blocksuite/affine-block-attachment';
+import {
+  toggleSubscript,
+  toggleSuperscript,
+} from '@blocksuite/affine-inline-preset';
 import type { TestWorkspace } from '../../../../framework/store/src/test/test-workspace.js';
 import { BehaviorSubject } from 'rxjs';
 declare var decoder: any;
@@ -1413,6 +1417,27 @@ export class StarterDebugMenu extends ShadowlessElement {
                           <sl-icon name="easel"></sl-icon>
                       </sl-button>
                   </sl-tooltip>
+
+                  ${!this.readonly ? html`
+                      <sl-button-group label="Text Format">
+                          <sl-tooltip content="上标 (Superscript)" placement="bottom" hoist>
+                              <sl-button
+                                  size="small"
+                                  @click="${() => this.editor.std.command.chain().pipe(toggleSuperscript).run()}"
+                              >
+                                  X<sup>2</sup>
+                              </sl-button>
+                          </sl-tooltip>
+                          <sl-tooltip content="下标 (Subscript)" placement="bottom" hoist>
+                              <sl-button
+                                  size="small"
+                                  @click="${() => this.editor.std.command.chain().pipe(toggleSubscript).run()}"
+                              >
+                                  X<sub>2</sub>
+                              </sl-button>
+                          </sl-tooltip>
+                      </sl-button-group>
+                  ` : null}
 
                   <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>
                       <sl-button size="small" slot="trigger" caret>

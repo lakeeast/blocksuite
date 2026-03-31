@@ -16,6 +16,8 @@ export {
   toggleCode,
   toggleItalic,
   toggleStrike,
+  toggleSubscript,
+  toggleSuperscript,
   toggleTextStyleCommand,
   toggleUnderline,
 } from './text-style.js';

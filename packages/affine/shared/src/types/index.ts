@@ -41,6 +41,8 @@ export type AffineTextStyleAttributes = {
   underline?: true | null;
   strike?: true | null;
   code?: true | null;
+  superscript?: true | null;
+  subscript?: true | null;
   color?: string | null;
   background?: string | null;
 };

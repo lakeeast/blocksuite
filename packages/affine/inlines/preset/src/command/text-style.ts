@@ -16,7 +16,7 @@ import { getCombinedTextAttributes } from './utils.js';
 export const toggleTextStyleCommand: Command<{
   key: Extract<
     keyof AffineTextStyleAttributes,
-    'bold' | 'italic' | 'underline' | 'strike' | 'code'
+    'bold' | 'italic' | 'underline' | 'strike' | 'code' | 'superscript' | 'subscript'
   >;
 }> = (ctx, next) => {
   const { std, key } = ctx;
@@ -33,6 +33,13 @@ export const toggleTextStyleCommand: Command<{
       [key]: active ? null : true,
     },
   };
+
+  // Superscript and subscript are mutually exclusive
+  if (key === 'superscript' && !active) {
+    payload.styles.subscript = null;
+  } else if (key === 'subscript' && !active) {
+    payload.styles.superscript = null;
+  }
 
   const [result] = std.command
     .chain()
@@ -53,7 +60,7 @@ export const toggleTextStyleCommand: Command<{
 const toggleTextStyleCommandWrapper = (
   key: Extract<
     keyof AffineTextStyleAttributes,
-    'bold' | 'italic' | 'underline' | 'strike' | 'code'
+    'bold' | 'italic' | 'underline' | 'strike' | 'code' | 'superscript' | 'subscript'
   >
 ): Command => {
   return (ctx, next) => {
@@ -71,6 +78,8 @@ export const toggleItalic = toggleTextStyleCommandWrapper('italic');
 export const toggleUnderline = toggleTextStyleCommandWrapper('underline');
 export const toggleStrike = toggleTextStyleCommandWrapper('strike');
 export const toggleCode = toggleTextStyleCommandWrapper('code');
+export const toggleSuperscript = toggleTextStyleCommandWrapper('superscript');
+export const toggleSubscript = toggleTextStyleCommandWrapper('subscript');
 
 export const getTextAttributes: Command<
   {},
