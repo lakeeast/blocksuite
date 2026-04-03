@@ -1324,6 +1324,12 @@ export class StarterDebugMenu extends ShadowlessElement {
           }
         }
 
+        @media (max-width: 768px) {
+          .desktop-only {
+            display: none !important;
+          }
+        }
+
         .default-toolbar {
           display: flex;
           gap: 5px;
@@ -1372,7 +1378,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                           </sl-tooltip>
                       </sl-button-group>
                   ` : null}
-                  <sl-tooltip content="模式切换" placement="bottom" hoist>
+                  <sl-tooltip content="模式切换" placement="bottom" hoist class="desktop-only">
                       <sl-button size="small" @click="${this._switchEditorMode}">
                           <sl-icon name="repeat"></sl-icon>
                       </sl-button>
@@ -1419,7 +1425,7 @@ export class StarterDebugMenu extends ShadowlessElement {
                   </sl-tooltip>
 
                   ${!this.readonly ? html`
-                      <sl-button-group label="Text Format">
+                      <sl-button-group label="Text Format" class="desktop-only">
                           <sl-tooltip content="上标 (Superscript)" placement="bottom" hoist>
                               <sl-button
                                   size="small"

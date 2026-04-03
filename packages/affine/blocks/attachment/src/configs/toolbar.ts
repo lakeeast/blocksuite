@@ -573,6 +573,23 @@ class DicomViewerPopup extends LitElement {
   override firstUpdated() {
     // Load DICOM viewer directly without iframe
     this._setupDirectDicomViewer();
+
+    // Ensure Angular CDK overlay container renders above this popup.
+    // The CDK creates .cdk-overlay-container on document.body with z-index:1000.
+    // After reopening, it can end up behind the portal wrapper. Fix by boosting its z-index.
+    this._ensureCdkOverlayOnTop();
+  }
+
+  private _ensureCdkOverlayOnTop() {
+    const boost = () => {
+      const cdkContainer = document.querySelector('.cdk-overlay-container') as HTMLElement;
+      if (cdkContainer) {
+        cdkContainer.style.zIndex = '10000';
+      }
+    };
+    // Run immediately and again after a short delay (CDK may create it lazily)
+    boost();
+    setTimeout(boost, 500);
   }
 
   override render() {
@@ -613,13 +630,18 @@ class DicomViewerPopup extends LitElement {
       document.head.appendChild(link2);
     }
 
-    // Load quantant-viewer.js
-    const script = document.createElement('script');
-    script.src = '/block/qt-sdk/quantant-viewer.js';
-    script.async = true;
-    script.onload = () => this._createDicomElement(container);
-    script.onerror = () => toast(this.block!.host, 'Failed to load DICOM viewer');
-    document.head.appendChild(script);
+    // Load quantant-viewer.js (only once)
+    if (document.querySelector('script[src="/block/qt-sdk/quantant-viewer.js"]')) {
+      // Script already loaded, create element directly
+      this._createDicomElement(container);
+    } else {
+      const script = document.createElement('script');
+      script.src = '/block/qt-sdk/quantant-viewer.js';
+      script.async = true;
+      script.onload = () => this._createDicomElement(container);
+      script.onerror = () => toast(this.block!.host, 'Failed to load DICOM viewer');
+      document.head.appendChild(script);
+    }
   }
 
   private async _createDicomElement(container: HTMLElement) {
@@ -704,27 +726,27 @@ class DicomViewerPopup extends LitElement {
       dicomElement.addEventListener('ohifEvent', ohifListener);
       dicomElement.addEventListener('closeEvent', closeListener);
 
-      // Clean up event listeners
+      // Clean up event listeners (guard against double-cleanup)
+      let cleaned = false;
       const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
         (dicomElement as any).clearViews?.();
         dicomElement.removeEventListener('weasisEvent', weasisListener);
         dicomElement.removeEventListener('ohifEvent', ohifListener);
         dicomElement.removeEventListener('closeEvent', closeListener);
         dicomElement.remove();
-      };
-
-      this.addEventListener('close', () => {
-        cleanup();
         this.onClose?.();
         this.remove();
-      });
+      };
+
+      this.addEventListener('close', () => cleanup());
 
       const abortController = (this as any).abortController as AbortController | undefined;
       if (abortController) {
         abortController.signal.addEventListener('abort', () => {
           console.log('Cleaning up DICOM viewer on abort');
           cleanup();
-          this.dispatchEvent(new CustomEvent('close'));
         });
       }
     } catch (error) {
@@ -735,8 +757,8 @@ class DicomViewerPopup extends LitElement {
 
   private _handleClose() {
     console.log('Closing popup');
-    // TODO: close based on DICOM messages
-    this.onClose();
+    // Dispatch close event to trigger cleanup of the DICOM viewer
+    this.dispatchEvent(new CustomEvent('close'));
   }
 }
 
