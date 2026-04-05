@@ -167,7 +167,7 @@ const alignActionGroup = {
         <editor-menu-button
           .contentPadding="${'8px'}"
           .button=${html`
-            <editor-icon-button aria-label="Align" .tooltip="${'Align'}">
+            <editor-icon-button aria-label="对齐" .tooltip="${'对齐'}">
               ${alignment.icon} ${EditorChevronDown}
             </editor-icon-button>
           `}

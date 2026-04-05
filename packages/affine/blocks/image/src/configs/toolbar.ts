@@ -56,7 +56,7 @@ const builtinToolbarConfig = {
     },
     {
       id: 'c.1.align-left',
-      tooltip: 'Align left',
+      tooltip: '左对齐',
       icon: TextAlignLeftIcon(),
       run(ctx) {
         const block = ctx.getCurrentBlockByType(ImageBlockComponent);
@@ -72,7 +72,7 @@ const builtinToolbarConfig = {
     },
     {
       id: 'c.2.align-center',
-      tooltip: 'Align center',
+      tooltip: '居中对齐',
       icon: TextAlignCenterIcon(),
       run(ctx) {
         const block = ctx.getCurrentBlockByType(ImageBlockComponent);
@@ -88,7 +88,7 @@ const builtinToolbarConfig = {
     },
     {
       id: 'c.3.align-right',
-      tooltip: 'Align right',
+      tooltip: '右对齐',
       icon: TextAlignRightIcon(),
       run(ctx) {
         const block = ctx.getCurrentBlockByType(ImageBlockComponent);

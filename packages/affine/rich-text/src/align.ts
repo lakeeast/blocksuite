@@ -16,19 +16,19 @@ export interface TextAlignConfig {
 export const textAlignConfigs: TextAlignConfig[] = [
   {
     textAlign: TextAlign.Left,
-    name: 'Align left',
+    name: '左对齐',
     hotkey: [`Mod-Shift-L`],
     icon: TextAlignLeftIcon(),
   },
   {
     textAlign: TextAlign.Center,
-    name: 'Align center',
+    name: '居中对齐',
     hotkey: [`Mod-Shift-E`],
     icon: TextAlignCenterIcon(),
   },
   {
     textAlign: TextAlign.Right,
-    name: 'Align right',
+    name: '右对齐',
     hotkey: [`Mod-Shift-R`],
     icon: TextAlignRightIcon(),
   },
