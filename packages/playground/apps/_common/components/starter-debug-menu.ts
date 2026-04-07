@@ -1425,24 +1425,22 @@ export class StarterDebugMenu extends ShadowlessElement {
                   </sl-tooltip>
 
                   ${!this.readonly ? html`
-                      <sl-button-group label="Text Format" class="desktop-only">
-                          <sl-tooltip content="上标 (Superscript)" placement="bottom" hoist>
-                              <sl-button
-                                  size="small"
-                                  @click="${() => this.editor.std.command.chain().pipe(toggleSuperscript).run()}"
-                              >
-                                  X<sup>2</sup>
-                              </sl-button>
-                          </sl-tooltip>
-                          <sl-tooltip content="下标 (Subscript)" placement="bottom" hoist>
-                              <sl-button
-                                  size="small"
-                                  @click="${() => this.editor.std.command.chain().pipe(toggleSubscript).run()}"
-                              >
-                                  X<sub>2</sub>
-                              </sl-button>
-                          </sl-tooltip>
-                      </sl-button-group>
+                      <sl-tooltip content="上标 (Superscript)" placement="bottom" hoist class="desktop-only">
+                          <sl-button
+                              size="small"
+                              @click="${() => this.editor.std.command.chain().pipe(toggleSuperscript).run()}"
+                          >
+                              X²
+                          </sl-button>
+                      </sl-tooltip>
+                      <sl-tooltip content="下标 (Subscript)" placement="bottom" hoist class="desktop-only">
+                          <sl-button
+                              size="small"
+                              @click="${() => this.editor.std.command.chain().pipe(toggleSubscript).run()}"
+                          >
+                              X₂
+                          </sl-button>
+                      </sl-tooltip>
                   ` : null}
 
                   <sl-dropdown id="test-operations-dropdown" placement="bottom" hoist>

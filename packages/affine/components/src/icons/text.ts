@@ -149,13 +149,14 @@ export const SuperscriptIcon = html`<svg
     stroke-linecap="round"
     stroke-linejoin="round"
   />
-  <path
-    d="M14 6.5H16.5C16.5 6.5 17.5 6.5 17.5 5.5C17.5 4.5 16.5 4.5 16.5 4.5C16.5 4.5 15.5 4.5 15.5 3.5C15.5 2.5 16.5 2.5 16.5 2.5H14"
-    stroke="currentColor"
-    stroke-width="1.2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
+  <text
+    x="16"
+    y="7"
+    font-size="6"
+    font-weight="bold"
+    fill="currentColor"
+    text-anchor="middle"
+  >2</text>
 </svg>`;
 
 export const SubscriptIcon = html`<svg
@@ -172,13 +173,14 @@ export const SubscriptIcon = html`<svg
     stroke-linecap="round"
     stroke-linejoin="round"
   />
-  <path
-    d="M14 17.5H16.5C16.5 17.5 17.5 17.5 17.5 16.5C17.5 15.5 16.5 15.5 16.5 15.5C16.5 15.5 15.5 15.5 15.5 14.5C15.5 13.5 16.5 13.5 16.5 13.5H14"
-    stroke="currentColor"
-    stroke-width="1.2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
+  <text
+    x="16"
+    y="18"
+    font-size="6"
+    font-weight="bold"
+    fill="currentColor"
+    text-anchor="middle"
+  >2</text>
 </svg>`;
 
 // Slash menu action icons
