@@ -26,16 +26,34 @@ import { BlockSelection } from '@blocksuite/std';
 import { updateBlockAlign, updateBlockType } from '../commands';
 import { tooltips } from './tooltips';
 
+const NARROW_SCREEN_BREAKPOINT = 768;
+const isNarrowScreen = () =>
+  typeof window !== 'undefined' &&
+  window.innerWidth < NARROW_SCREEN_BREAKPOINT;
+
 let basicIndex = 0;
 const noteSlashMenuConfig: SlashMenuConfig = {
   items: [
     ...textConversionConfigs
       .filter(i => i.type && ['h1', 'h2', 'h3', 'text'].includes(i.type))
       .map(config => createConversionItem(config, `0_Basic@${basicIndex++}`)),
+    ...textConversionConfigs
+      .filter(i => i.type && ['h4', 'h5', 'h6'].includes(i.type))
+      .map(config => {
+        const item = createConversionItem(
+          config,
+          `0_Basic@${basicIndex++}`
+        );
+        const prevWhen = item.when;
+        item.when = ctx =>
+          isNarrowScreen() && (!prevWhen || prevWhen(ctx));
+        return item;
+      }),
     {
       name: '其他标题',
       icon: HeadingsIcon(),
       group: `0_Basic@${basicIndex++}`,
+      when: () => !isNarrowScreen(),
       subMenu: textConversionConfigs
         .filter(i => i.type && ['h4', 'h5', 'h6'].includes(i.type))
         .map(config => createConversionItem(config)),
