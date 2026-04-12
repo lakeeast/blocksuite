@@ -71,6 +71,13 @@ export async function printToPdf(
                   --affine-note-shadow-box: none !important;
                   --affine-note-shadow-sticker: none !important;
                 }
+              affine-keyboard-toolbar,
+              affine-keyboard-tool-panel,
+              affine-keyboard-toolbar-widget,
+              .slash-menu,
+              .overlay-root {
+                display: none !important;
+              }
               }</style></head><body></body></html>`);
       doc.close();
       iframe.contentWindow.document
@@ -109,6 +116,13 @@ export async function printToPdf(
               :root {
                 --affine-note-shadow-box: none !important;
                 --affine-note-shadow-sticker: none !important;
+              }
+              affine-keyboard-toolbar,
+              affine-keyboard-tool-panel,
+              affine-keyboard-toolbar-widget,
+              .slash-menu,
+              .overlay-root {
+                display: none !important;
               }
             }</style></head><body></body></html>`);
 
