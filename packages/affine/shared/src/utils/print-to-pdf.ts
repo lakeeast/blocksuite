@@ -71,14 +71,11 @@ export async function printToPdf(
                   --affine-note-shadow-box: none !important;
                   --affine-note-shadow-sticker: none !important;
                 }
-              affine-keyboard-toolbar,
-              affine-keyboard-tool-panel,
-              affine-keyboard-toolbar-widget,
-              .slash-menu,
-              .overlay-root {
-                display: none !important;
-              }
-              }</style></head><body></body></html>`);
+                .affine-page-viewport {
+                  height: auto !important;
+                  overflow: visible !important;
+                }
+}</style></head><body></body></html>`);
       doc.close();
       iframe.contentWindow.document
         .write(`<!DOCTYPE html><html><head><style>@media print {
@@ -117,12 +114,9 @@ export async function printToPdf(
                 --affine-note-shadow-box: none !important;
                 --affine-note-shadow-sticker: none !important;
               }
-              affine-keyboard-toolbar,
-              affine-keyboard-tool-panel,
-              affine-keyboard-toolbar-widget,
-              .slash-menu,
-              .overlay-root {
-                display: none !important;
+              .affine-page-viewport {
+                height: auto !important;
+                overflow: visible !important;
               }
             }</style></head><body></body></html>`);
 
@@ -189,6 +183,19 @@ export async function printToPdf(
         canvasImgObjectUrlMap.set(key, URL.createObjectURL(canvasImgObjectUrl));
       }
 
+      // Elements that are UI chrome and should not appear in PDF output.
+      // When shadow DOM is flattened their scoped "display:none" is lost,
+      // so the safest approach is to skip them entirely during cloning.
+      const shouldSkipForPrint = (node: Node): boolean => {
+        if (!(node instanceof HTMLElement)) return false;
+        const tag = node.tagName.toLowerCase();
+        return (
+          tag.endsWith('-widget') ||
+          tag === 'editor-toolbar' ||
+          tag === 'blocksuite-portal'
+        );
+      };
+
       // Recursive deep clone that flattens Shadow DOM into Light DOM
       const deepCloneWithShadows = (node: Node): Node => {
         const clone = doc.importNode(node, false);
@@ -205,6 +212,7 @@ export async function printToPdf(
 
         const appendChildren = (source: Node) => {
           source.childNodes.forEach(child => {
+            if (shouldSkipForPrint(child)) return;
             (clone as Element).append(deepCloneWithShadows(child));
           });
         };
