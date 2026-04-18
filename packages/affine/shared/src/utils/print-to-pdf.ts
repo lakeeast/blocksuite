@@ -75,6 +75,9 @@ export async function printToPdf(
                   height: auto !important;
                   overflow: visible !important;
                 }
+                .affine-page-root-block-container {
+                  padding-bottom: 0 !important;
+                }
 }</style></head><body></body></html>`);
       doc.close();
       iframe.contentWindow.document
@@ -117,6 +120,9 @@ export async function printToPdf(
               .affine-page-viewport {
                 height: auto !important;
                 overflow: visible !important;
+              }
+              .affine-page-root-block-container {
+                padding-bottom: 0 !important;
               }
             }</style></head><body></body></html>`);
 
@@ -192,7 +198,8 @@ export async function printToPdf(
         return (
           tag.endsWith('-widget') ||
           tag === 'editor-toolbar' ||
-          tag === 'blocksuite-portal'
+          tag === 'blocksuite-portal' ||
+          tag === 'affine-surface-void'
         );
       };
 
@@ -232,6 +239,82 @@ export async function printToPdf(
       doc.body.dataset.theme = 'light';
       importedRoot.dataset.theme = 'light';
 
+      // Ensure html and body grow to fit content. Copied stylesheets from the
+      // main document can otherwise constrain body to a fixed height, which
+      // clips pagination and causes the printer to insert a blank phantom
+      // page for overflow.
+      doc.documentElement.style.setProperty('height', 'auto', 'important');
+      doc.documentElement.style.setProperty('overflow', 'visible', 'important');
+      doc.body.style.setProperty('height', 'auto', 'important');
+      doc.body.style.setProperty('min-height', '0', 'important');
+      doc.body.style.setProperty('overflow', 'visible', 'important');
+      doc.body.style.setProperty('margin', '0', 'important');
+
+      // Remove trailing empty paragraphs. Users often have an empty paragraph
+      // at the end of a document (containing only a zero-width space), which
+      // takes ~23px of vertical space and can push content onto a nearly
+      // empty second page for no real reason.
+      //
+      // We check the v-line content only, because the paragraph's textContent
+      // includes placeholder text ("输入'/'唤醒菜单") from the empty-state
+      // indicator, which would otherwise make every empty paragraph look
+      // non-empty.
+      const isEmptyParagraph = (el: Element): boolean => {
+        if (el.tagName.toLowerCase() !== 'affine-paragraph') return false;
+        const richText = el.querySelector('rich-text');
+        if (!richText) return false;
+        const vLines = richText.querySelectorAll('v-line');
+        if (vLines.length === 0) return true;
+        // Sum up visible text across all v-lines, stripping zero-width spaces.
+        let total = '';
+        for (const line of vLines) {
+          total += (line.textContent ?? '').replace(/\u200B/g, '');
+        }
+        return total.trim().length === 0;
+      };
+      const childrenContainers = importedRoot.querySelectorAll(
+        '.affine-block-children-container'
+      );
+      for (const container of childrenContainers) {
+        while (
+          container.lastElementChild &&
+          isEmptyParagraph(container.lastElementChild)
+        ) {
+          container.lastElementChild.remove();
+        }
+      }
+
+      // Neutralize layout constraints that cause content cutoff and extra
+      // blank pages. Selectors with height:100% / flex-grow can make inner
+      // blocks compute to a wrong height in the zero-sized print iframe,
+      // and the 32px bottom padding can push content past a page boundary.
+      const forceAutoHeight = (el: HTMLElement) => {
+        el.style.setProperty('height', 'auto', 'important');
+        el.style.setProperty('min-height', '0', 'important');
+        el.style.setProperty('max-height', 'none', 'important');
+        el.style.setProperty('overflow', 'visible', 'important');
+      };
+      forceAutoHeight(importedRoot);
+      importedRoot
+        .querySelectorAll<HTMLElement>(
+          '.page-editor, editor-host, affine-page-root, .affine-page-root-block-container'
+        )
+        .forEach(forceAutoHeight);
+      importedRoot
+        .querySelectorAll<HTMLElement>('.affine-page-root-block-container')
+        .forEach(el => el.style.setProperty('padding-bottom', '0', 'important'));
+
+      // Strip trailing margin on the last block so it doesn't push a few
+      // pixels onto a nearly-empty second page.
+      const lastBlock = Array.from(
+        importedRoot.querySelectorAll<HTMLElement>(
+          '.affine-block-component'
+        )
+      ).pop();
+      if (lastBlock) {
+        lastBlock.style.setProperty('margin-bottom', '0', 'important');
+      }
+
       // draw saved canvas image to canvas
       const allImportedCanvas = importedRoot.getElementsByTagName('canvas');
       for (const importedCanvas of allImportedCanvas) {
@@ -258,6 +341,28 @@ export async function printToPdf(
 
       // append to iframe
       doc.body.append(importedRoot);
+
+      // Measure cloned content at print width so we can size the iframe to
+      // content height. A much-too-tall iframe makes Chrome emit extra blank
+      // pages even when content fits.
+      Object.assign(iframe.style, {
+        position: 'absolute',
+        left: '-9999px',
+        top: '0',
+        width: '816px',
+        height: '2000px',
+        visibility: 'hidden',
+        border: 'none',
+      });
+      await new Promise(r => setTimeout(r, 50));
+      iframe.style.height = `${doc.body.scrollHeight}px`;
+
+      const pageStyle = doc.createElement('style');
+      pageStyle.textContent = `
+        @page { size: letter; margin: 0.4in; }
+        html, body { margin: 0 !important; padding: 0 !important; }
+      `;
+      doc.head.appendChild(pageStyle);
 
       await options.beforeprint?.(iframe);
 
